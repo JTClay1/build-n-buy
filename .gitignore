@@ -1,0 +1,6 @@
+server/instance/
+*.db
+__pycache__/
+node_modules/
+dist/
+.env
