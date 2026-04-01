@@ -15,6 +15,12 @@ bcrypt.init_app(app)
 jwt.init_app(app)
 cors.init_app(app)
 
+# Import Blueprints
+from routes.auth_routes import auth_bp
+
+# Register Blueprints with a URL prefix
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
+
 # A simple health check route
 @app.route('/')
 def index():
