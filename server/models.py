@@ -14,6 +14,13 @@ class User(db.Model):
 
     def __repr__(self):
         return f'<User {self.username}>'
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email
+        }
 
 class Goal(db.Model):
     __tablename__ = 'goals'
@@ -40,6 +47,27 @@ class Goal(db.Model):
     def __repr__(self):
         return f'<Goal {self.item_name} - ${self.target_amount}>'
 
+    def to_dict(self, include_contributions=True):
+        data = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "item_name": self.item_name,
+            "target_amount": self.target_amount,
+            "saved_amount": self.saved_amount,
+            "months_to_goal": self.months_to_goal,
+            "monthly_target": self.monthly_target,
+            "target_date": self.target_date.isoformat() if self.target_date else None,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
+        if include_contributions:
+            data["contributions"] = [
+                contribution.to_dict() for contribution in self.contributions
+            ]
+
+        return data
+
 class Contribution(db.Model):
     __tablename__ = 'contributions'
 
@@ -52,3 +80,12 @@ class Contribution(db.Model):
 
     def __repr__(self):
         return f'<Contribution ${self.amount} to Goal {self.goal_id}>'
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "goal_id": self.goal_id,
+            "amount": self.amount,
+            "note": self.note,
+            "contribution_date": self.contribution_date.isoformat() if self.contribution_date else None
+        }
