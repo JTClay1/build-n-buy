@@ -3,7 +3,7 @@ from config import Config
 from extensions import db, migrate, bcrypt, jwt, cors
 
 # Import models so Flask-Migrate knows about them!
-import models 
+import models
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -17,9 +17,11 @@ cors.init_app(app)
 
 # Import Blueprints
 from routes.auth_routes import auth_bp
+from routes.goal_routes import goal_bp
 
 # Register Blueprints with a URL prefix
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(goal_bp, url_prefix='/api/goals')
 
 # A simple health check route
 @app.route('/')
