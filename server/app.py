@@ -20,11 +20,13 @@ cors.init_app(app)
 from routes.auth_routes import auth_bp
 from routes.goal_routes import goal_bp
 from routes.contribution_routes import contribution_bp
+from routes.dashboard_routes import dashboard_bp
 
 # Register Blueprints with a URL prefix
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(goal_bp, url_prefix='/api/goals')
 app.register_blueprint(contribution_bp, url_prefix="/api")
+app.register_blueprint(dashboard_bp, url_prefix="/api")
 
 # A simple health check route
 @app.route('/')
