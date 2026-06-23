@@ -1,0 +1,63 @@
+import { Route, Routes } from "react-router-dom";
+
+import NavBar from "./components/NavBar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import DashboardPage from "./pages/DashboardPage";
+import NewGoalPage from "./pages/NewGoalPage";
+import GoalDetailPage from "./pages/GoalDetailPage";
+import EditGoalPage from "./pages/EditGoalPage";
+
+function App() {
+  return (
+    <>
+      <NavBar />
+
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/goals/new"
+          element={
+            <ProtectedRoute>
+              <NewGoalPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/goals/:goalId"
+          element={
+            <ProtectedRoute>
+              <GoalDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/goals/:goalId/edit"
+          element={
+            <ProtectedRoute>
+              <EditGoalPage />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </>
+  );
+}
+
+export default App;
