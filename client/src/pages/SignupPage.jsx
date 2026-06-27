@@ -10,6 +10,7 @@ function SignupPage() {
     username: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
 
   const [error, setError] = useState("");
@@ -27,10 +28,22 @@ function SignupPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await signup(formData);
+      const signupData = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+      };
+
+      await signup(signupData);
       navigate("/dashboard");
     } catch (err) {
       setError(err.message);
@@ -73,6 +86,16 @@ function SignupPage() {
           name="password"
           type="password"
           value={formData.password}
+          onChange={handleChange}
+          required
+        />
+
+        <label htmlFor="confirmPassword">Confirm Password</label>
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          value={formData.confirmPassword}
           onChange={handleChange}
           required
         />
