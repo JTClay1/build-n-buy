@@ -94,19 +94,55 @@ def update_goal(goal_id):
         return jsonify({"error": "Goal not found"}), 404
 
     if "item_name" in data:
-        goal.item_name = data["item_name"]
+        item_name = data["item_name"].strip()
+
+        if not item_name:
+            return jsonify({"error": "Item name cannot be empty"}), 400
+
+        goal.item_name = item_name
 
     if "target_amount" in data:
-        goal.target_amount = float(data["target_amount"])
+        try:
+            target_amount = float(data["target_amount"])
+        except ValueError:
+            return jsonify({"error": "Target amount must be a number"}), 400
+
+        if target_amount <= 0:
+            return jsonify({"error": "Target amount must be greater than zero"}), 400
+
+        goal.target_amount = target_amount
 
     if "months_to_goal" in data:
-        goal.months_to_goal = int(data["months_to_goal"])
+        try:
+            months_to_goal = int(data["months_to_goal"])
+        except ValueError:
+            return jsonify({"error": "Months to goal must be an integer"}), 400
+
+        if months_to_goal <= 0:
+            return jsonify({"error": "Months to goal must be greater than zero"}), 400
+
+        goal.months_to_goal = months_to_goal
+        goal.target_date = datetime.utcnow() + timedelta(days=months_to_goal * 30)
 
     if "status" in data:
-        goal.status = data["status"]
+        allowed_statuses = ["active", "completed", "scrapped"]
+        status = data["status"]
 
-    remaining_amount = goal.target_amount - goal.saved_amount
-    goal.monthly_target = round(remaining_amount / goal.months_to_goal, 2)
+        if status not in allowed_statuses:
+            return jsonify({"error": "Invalid goal status"}), 400
+
+        goal.status = status
+
+    if goal.saved_amount >= goal.target_amount:
+        goal.saved_amount = goal.target_amount
+        goal.status = "completed"
+
+    remaining_amount = max(goal.target_amount - goal.saved_amount, 0)
+
+    if goal.status == "completed":
+        goal.monthly_target = 0.0
+    else:
+        goal.monthly_target = round(remaining_amount / goal.months_to_goal, 2)
 
     db.session.commit()
 
@@ -114,7 +150,6 @@ def update_goal(goal_id):
         "message": "Goal updated successfully",
         "goal": goal.to_dict()
     }), 200
-
 
 @goal_bp.route("/<int:goal_id>", methods=["DELETE"])
 @jwt_required()
