@@ -9,6 +9,8 @@ import DashboardPage from "./pages/DashboardPage";
 import NewGoalPage from "./pages/NewGoalPage";
 import GoalDetailPage from "./pages/GoalDetailPage";
 import EditGoalPage from "./pages/EditGoalPage";
+import PublicOnlyRoute from "./components/PublicOnlyRoute";
+import UnauthorizedPage from "./pages/UnauthorizedPage";
 
 function App() {
   return (
@@ -17,8 +19,25 @@ function App() {
 
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            <PublicOnlyRoute>
+              <SignupPage />
+            </PublicOnlyRoute>
+          }
+        />
+
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
         <Route
           path="/dashboard"
