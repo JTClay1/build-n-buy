@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Logo from "../components/Logo";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -40,6 +41,9 @@ function LoginPage() {
 
   return (
     <main className="page auth-page">
+      <div className="auth-logo-wrap">
+        <Logo />
+      </div>
       <h1>Log In</h1>
       <p>Welcome back. Log in to keep building your purchase plan.</p>
 
