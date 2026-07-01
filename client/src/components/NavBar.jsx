@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Logo from "./Logo";
 
 function NavBar() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -12,8 +13,8 @@ function NavBar() {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="logo">
-        Build n&apos; Buy
+      <Link to="/" className="logo-link" aria-label="Build n' Buy home">
+        <Logo />
       </Link>
 
       <div className="nav-links">

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Logo from "../components/Logo";
 
 function LandingPage() {
   const { user, isAuthenticated, authLoading } = useAuth();
@@ -18,7 +19,13 @@ function LandingPage() {
         <section className="home-hero">
           <div>
             <p className="eyebrow">Welcome back</p>
+
+            <div className="hero-logo-wrap hero-logo-feature">
+              <Logo size="large" />
+            </div>
+
             <h1>Keep building, {user?.username}.</h1>
+
             <p>
               Jump back into your purchase goals, review your savings progress,
               or create a new plan for your next big buy.
@@ -73,7 +80,13 @@ function LandingPage() {
       <section className="home-hero">
         <div>
           <p className="eyebrow">Save first. Buy smarter.</p>
-          <h1>Build n&apos; Buy</h1>
+
+          <div className="hero-logo-wrap hero-logo-feature">
+            <Logo size="large" />
+          </div>
+
+          <h1 className="sr-only">Build n&apos; Buy</h1>
+
           <p>
             Plan smarter purchases, track savings goals, and use AI to make
             better buying decisions before you spend.
