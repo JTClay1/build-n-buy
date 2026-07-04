@@ -54,24 +54,23 @@ function DashboardPage() {
             toward smarter buys.
           </p>
         </div>
-
-        <Link className="primary-link-button" to="/goals/new">
-          New Goal
-        </Link>
       </section>
 
       <section className="summary-grid">
         <SummaryCard label="Total Goals" value={summary.total_goals} />
         <SummaryCard label="Active Goals" value={summary.active_goals} />
         <SummaryCard label="Completed" value={summary.completed_goals} />
+
         <SummaryCard
           label="Total Saved"
           value={`$${summary.total_saved_amount.toFixed(2)}`}
         />
+
         <SummaryCard
           label="Overall Progress"
           value={`${summary.overall_progress}%`}
         />
+
         <SummaryCard
           label="Monthly Target"
           value={`$${summary.total_monthly_target.toFixed(2)}`}
@@ -81,7 +80,10 @@ function DashboardPage() {
       <section className="dashboard-section">
         <div className="section-header">
           <h2>Your Goals</h2>
-          <p>{goals.length} saved purchase goal{goals.length === 1 ? "" : "s"}</p>
+          <p>
+            {goals.length} saved purchase goal
+            {goals.length === 1 ? "" : "s"}
+          </p>
         </div>
 
         {goals.length > 0 ? (
@@ -94,6 +96,7 @@ function DashboardPage() {
           <div className="empty-state">
             <h3>No goals yet</h3>
             <p>Create your first purchase goal to start building toward it.</p>
+
             <Link className="primary-link-button" to="/goals/new">
               Create Goal
             </Link>

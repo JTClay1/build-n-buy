@@ -31,10 +31,6 @@ function LandingPage() {
               or create a new plan for your next big buy.
             </p>
           </div>
-
-          <Link className="primary-link-button" to="/dashboard">
-            Open Dashboard
-          </Link>
         </section>
 
         <section className="home-action-grid">
@@ -91,13 +87,6 @@ function LandingPage() {
             Plan smarter purchases, track savings goals, and use AI to make
             better buying decisions before you spend.
           </p>
-        </div>
-
-        <div className="button-row">
-          <Link className="primary-link-button" to="/signup">
-            Get Started
-          </Link>
-          <Link to="/login">Log In</Link>
         </div>
       </section>
 
