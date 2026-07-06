@@ -2,16 +2,32 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
-from models import Goal, Contribution
+from models import Contribution, Goal
 
 contribution_bp = Blueprint("contributions", __name__)
+
+
+def sync_goal_after_savings_change(goal):
+    """
+    Keeps goal savings status and timeline calculations consistent after
+    contributions are added or removed.
+    """
+    if goal.saved_amount >= goal.target_amount:
+        goal.saved_amount = goal.target_amount
+        goal.status = "completed"
+    elif goal.status == "completed":
+        goal.status = "active"
+
+    months_left = goal.months_remaining()
+    goal.months_to_goal = max(months_left, 1)
+    goal.monthly_target = goal.calculated_monthly_target()
 
 
 @contribution_bp.route("/goals/<int:goal_id>/contributions", methods=["POST"])
 @jwt_required()
 def create_contribution(goal_id):
     user_id = int(get_jwt_identity())
-    data = request.get_json()
+    data = request.get_json() or {}
 
     goal = Goal.query.filter_by(id=goal_id, user_id=user_id).first()
 
@@ -19,7 +35,7 @@ def create_contribution(goal_id):
         return jsonify({"error": "Goal not found"}), 404
 
     amount = data.get("amount")
-    note = data.get("note")
+    note = data.get("note", "")
 
     if amount is None:
         return jsonify({"error": "Contribution amount is required"}), 400
@@ -35,21 +51,11 @@ def create_contribution(goal_id):
     new_contribution = Contribution(
         goal_id=goal.id,
         amount=amount,
-        note=note
+        note=note.strip() if note else None
     )
 
     goal.saved_amount += amount
-
-    if goal.saved_amount >= goal.target_amount:
-        goal.saved_amount = goal.target_amount
-        goal.status = "completed"
-
-    remaining_amount = goal.target_amount - goal.saved_amount
-
-    if goal.status != "completed":
-        goal.monthly_target = round(remaining_amount / goal.months_to_goal, 2)
-    else:
-        goal.monthly_target = 0.0
+    sync_goal_after_savings_change(goal)
 
     db.session.add(new_contribution)
     db.session.commit()
@@ -71,21 +77,16 @@ def delete_contribution(contribution_id):
     if not contribution:
         return jsonify({"error": "Contribution not found"}), 404
 
-    goal = contribution.goal
+    goal = Goal.query.filter_by(
+        id=contribution.goal_id,
+        user_id=user_id
+    ).first()
 
-    if goal.user_id != user_id:
-        return jsonify({"error": "Contribution not found"}), 404
+    if not goal:
+        return jsonify({"error": "Goal not found"}), 404
 
-    goal.saved_amount -= contribution.amount
-
-    if goal.saved_amount < 0:
-        goal.saved_amount = 0.0
-
-    if goal.saved_amount < goal.target_amount and goal.status == "completed":
-        goal.status = "active"
-
-    remaining_amount = goal.target_amount - goal.saved_amount
-    goal.monthly_target = round(remaining_amount / goal.months_to_goal, 2)
+    goal.saved_amount = max(goal.saved_amount - contribution.amount, 0)
+    sync_goal_after_savings_change(goal)
 
     db.session.delete(contribution)
     db.session.commit()
