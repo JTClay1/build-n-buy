@@ -6,7 +6,7 @@ from models import Goal
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
-@dashboard_bp.route("/dashboard", methods=["GET"])
+@dashboard_bp.route("/dashboard", methods=["GET"], strict_slashes=False)
 @jwt_required()
 def get_dashboard():
     user_id = int(get_jwt_identity())
@@ -20,13 +20,18 @@ def get_dashboard():
     total_target_amount = sum(goal.target_amount for goal in goals)
     total_saved_amount = sum(goal.saved_amount for goal in goals)
 
+    overall_progress = 0
+
     if total_target_amount > 0:
-        overall_progress = round((total_saved_amount / total_target_amount) * 100, 2)
-    else:
-        overall_progress = 0
+        overall_progress = min(
+            round((total_saved_amount / total_target_amount) * 100, 1),
+            100
+        )
 
     total_monthly_target = sum(
-        goal.monthly_target for goal in goals if goal.status == "active"
+        goal.calculated_monthly_target()
+        for goal in goals
+        if goal.status == "active"
     )
 
     return jsonify({
@@ -39,5 +44,8 @@ def get_dashboard():
             "overall_progress": overall_progress,
             "total_monthly_target": round(total_monthly_target, 2)
         },
-        "goals": [goal.to_dict() for goal in goals]
+        "goals": [
+            goal.to_dict(include_contributions=False)
+            for goal in goals
+        ]
     }), 200

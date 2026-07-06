@@ -3,14 +3,53 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { deleteGoal, getGoal, updateGoal } from "../services/api";
 
+function getTomorrowDateString() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const year = tomorrow.getFullYear();
+  const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const day = String(tomorrow.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForInput(dateValue) {
+  if (!dateValue) {
+    return "";
+  }
+
+  return dateValue.split("T")[0];
+}
+
+function calculateMonthsRemaining(targetDateValue) {
+  if (!targetDateValue) {
+    return 0;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const targetDate = new Date(`${targetDateValue}T00:00:00`);
+  const millisecondsRemaining = targetDate - today;
+  const daysRemaining = millisecondsRemaining / (1000 * 60 * 60 * 24);
+
+  if (daysRemaining <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(daysRemaining / 30);
+}
+
 function EditGoalPage() {
   const { goalId } = useParams();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     item_name: "",
+    retailer: "",
     target_amount: "",
-    months_to_goal: "",
+    target_date: "",
     status: "active",
   });
 
@@ -29,8 +68,9 @@ function EditGoalPage() {
         setGoal(loadedGoal);
         setFormData({
           item_name: loadedGoal.item_name,
+          retailer: loadedGoal.retailer || "",
           target_amount: loadedGoal.target_amount,
-          months_to_goal: loadedGoal.months_to_goal,
+          target_date: formatDateForInput(loadedGoal.target_date),
           status: loadedGoal.status,
         });
       } catch (err) {
@@ -57,7 +97,7 @@ function EditGoalPage() {
     setError("");
 
     const targetAmount = Number(formData.target_amount);
-    const monthsToGoal = Number(formData.months_to_goal);
+    const monthsRemaining = calculateMonthsRemaining(formData.target_date);
 
     if (!formData.item_name.trim()) {
       setError("Please enter an item name.");
@@ -69,8 +109,13 @@ function EditGoalPage() {
       return;
     }
 
-    if (monthsToGoal <= 0) {
-      setError("Months to goal must be greater than zero.");
+    if (!formData.target_date) {
+      setError("Please choose a target date.");
+      return;
+    }
+
+    if (monthsRemaining <= 0 && formData.status !== "completed") {
+      setError("Target date must be in the future.");
       return;
     }
 
@@ -79,8 +124,9 @@ function EditGoalPage() {
     try {
       const data = await updateGoal(goalId, {
         item_name: formData.item_name.trim(),
+        retailer: formData.retailer.trim(),
         target_amount: targetAmount,
-        months_to_goal: monthsToGoal,
+        target_date: formData.target_date,
         status: formData.status,
       });
 
@@ -128,9 +174,16 @@ function EditGoalPage() {
     );
   }
 
+  const monthsRemaining = calculateMonthsRemaining(formData.target_date);
+
+  const remainingAmount =
+    Number(formData.target_amount) > Number(goal?.saved_amount || 0)
+      ? Number(formData.target_amount) - Number(goal?.saved_amount || 0)
+      : 0;
+
   const previewMonthlyTarget =
-    Number(formData.target_amount) > 0 && Number(formData.months_to_goal) > 0
-      ? Number(formData.target_amount) / Number(formData.months_to_goal)
+    remainingAmount > 0 && monthsRemaining > 0
+      ? remainingAmount / monthsRemaining
       : 0;
 
   return (
@@ -143,8 +196,8 @@ function EditGoalPage() {
         <p className="eyebrow">Adjust your plan</p>
         <h1>Edit Goal</h1>
         <p>
-          Update the purchase details, timeline, or status for this savings
-          goal.
+          Update the purchase details, retailer, target date, or status for this
+          savings goal.
         </p>
 
         {error && <p className="error-message">{error}</p>}
@@ -160,6 +213,16 @@ function EditGoalPage() {
             required
           />
 
+          <label htmlFor="retailer">Preferred Retailer</label>
+          <input
+            id="retailer"
+            name="retailer"
+            type="text"
+            placeholder="Example: Best Buy"
+            value={formData.retailer}
+            onChange={handleChange}
+          />
+
           <label htmlFor="target_amount">Target Amount</label>
           <input
             id="target_amount"
@@ -172,14 +235,13 @@ function EditGoalPage() {
             required
           />
 
-          <label htmlFor="months_to_goal">Months to Goal</label>
+          <label htmlFor="target_date">Target Date</label>
           <input
-            id="months_to_goal"
-            name="months_to_goal"
-            type="number"
-            min="1"
-            step="1"
-            value={formData.months_to_goal}
+            id="target_date"
+            name="target_date"
+            type="date"
+            min={getTomorrowDateString()}
+            value={formData.target_date}
             onChange={handleChange}
             required
           />
@@ -197,6 +259,11 @@ function EditGoalPage() {
           </select>
 
           <div className="goal-preview">
+            <span>Months remaining</span>
+            <strong>{monthsRemaining || "--"}</strong>
+          </div>
+
+          <div className="goal-preview">
             <span>Estimated monthly target</span>
             <strong>${previewMonthlyTarget.toFixed(2)}</strong>
           </div>
@@ -209,8 +276,8 @@ function EditGoalPage() {
         <div className="danger-zone">
           <h2>Plans Changed?</h2>
           <p>
-            No worries — you can delete this goal if it no longer fits your plans.
-            This will also remove its contribution history.
+            No worries — you can delete this goal if it no longer fits your
+            plans. This will also remove its contribution history.
           </p>
 
           <button
@@ -218,7 +285,7 @@ function EditGoalPage() {
             className="danger-button"
             onClick={handleDelete}
             disabled={isDeleting || isSubmitting}
-  >
+          >
             {isDeleting ? "Deleting..." : "Delete Goal"}
           </button>
         </div>
