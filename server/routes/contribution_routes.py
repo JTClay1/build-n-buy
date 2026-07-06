@@ -10,8 +10,10 @@ contribution_bp = Blueprint("contributions", __name__)
 def sync_goal_after_savings_change(goal):
     """
     Keeps goal savings status and timeline calculations consistent after
-    contributions are added or removed.
+    deposits or withdrawals.
     """
+    goal.saved_amount = max(goal.saved_amount, 0)
+
     if goal.saved_amount >= goal.target_amount:
         goal.saved_amount = goal.target_amount
         goal.status = "completed"
@@ -36,32 +38,46 @@ def create_contribution(goal_id):
 
     amount = data.get("amount")
     note = data.get("note", "")
+    entry_type = data.get("entry_type", "deposit")
+
+    if entry_type not in ["deposit", "withdrawal"]:
+        return jsonify({"error": "Entry type must be deposit or withdrawal"}), 400
 
     if amount is None:
-        return jsonify({"error": "Contribution amount is required"}), 400
+        return jsonify({"error": "Amount is required"}), 400
 
     try:
         amount = float(amount)
     except ValueError:
-        return jsonify({"error": "Contribution amount must be a number"}), 400
+        return jsonify({"error": "Amount must be a number"}), 400
 
     if amount <= 0:
-        return jsonify({"error": "Contribution amount must be greater than zero"}), 400
+        return jsonify({"error": "Amount must be greater than zero"}), 400
+
+    if entry_type == "withdrawal" and amount > goal.saved_amount:
+        return jsonify({
+            "error": "Withdrawal amount cannot be greater than saved amount"
+        }), 400
 
     new_contribution = Contribution(
         goal_id=goal.id,
         amount=amount,
+        entry_type=entry_type,
         note=note.strip() if note else None
     )
 
-    goal.saved_amount += amount
+    if entry_type == "deposit":
+        goal.saved_amount += amount
+    else:
+        goal.saved_amount -= amount
+
     sync_goal_after_savings_change(goal)
 
     db.session.add(new_contribution)
     db.session.commit()
 
     return jsonify({
-        "message": "Contribution added successfully",
+        "message": "Savings activity added successfully",
         "contribution": new_contribution.to_dict(),
         "goal": goal.to_dict()
     }), 201
@@ -85,13 +101,17 @@ def delete_contribution(contribution_id):
     if not goal:
         return jsonify({"error": "Goal not found"}), 404
 
-    goal.saved_amount = max(goal.saved_amount - contribution.amount, 0)
+    if contribution.entry_type == "deposit":
+        goal.saved_amount -= contribution.amount
+    else:
+        goal.saved_amount += contribution.amount
+
     sync_goal_after_savings_change(goal)
 
     db.session.delete(contribution)
     db.session.commit()
 
     return jsonify({
-        "message": "Contribution deleted successfully",
+        "message": "Savings activity deleted successfully",
         "goal": goal.to_dict()
     }), 200
