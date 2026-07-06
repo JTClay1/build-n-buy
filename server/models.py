@@ -140,17 +140,31 @@ class Contribution(db.Model):
     goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=False)
 
     amount = db.Column(db.Float, nullable=False)
+    entry_type = db.Column(
+        db.String(20),
+        nullable=False,
+        default="deposit",
+        server_default="deposit"
+    )
     note = db.Column(db.String(255))
     contribution_date = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
-        return f'<Contribution ${self.amount} to Goal {self.goal_id}>'
+        return f'<Contribution {self.entry_type} ${self.amount} to Goal {self.goal_id}>'
+
+    def signed_amount(self):
+        if self.entry_type == "withdrawal":
+            return -self.amount
+
+        return self.amount
 
     def to_dict(self):
         return {
             "id": self.id,
             "goal_id": self.goal_id,
             "amount": self.amount,
+            "signed_amount": self.signed_amount(),
+            "entry_type": self.entry_type,
             "note": self.note,
             "contribution_date": self.contribution_date.isoformat() if self.contribution_date else None
-        } 
+        }

@@ -108,7 +108,16 @@ function buildProgressChartData(goal) {
   ];
 
   sortedContributions.forEach((contribution) => {
-    runningSaved += Number(contribution.amount || 0);
+    const entryType = contribution.entry_type || "deposit";
+    const amount = Number(contribution.amount || 0);
+
+    if (entryType === "withdrawal") {
+      runningSaved -= amount;
+    } else {
+      runningSaved += amount;
+    }
+
+    runningSaved = Math.max(runningSaved, 0);
 
     const percent =
       goal.target_amount > 0
@@ -186,6 +195,7 @@ function GoalDetailPage() {
   const [goal, setGoal] = useState(null);
   const [formData, setFormData] = useState({
     amount: "",
+    entry_type: "deposit",
     note: "",
   });
   const [error, setError] = useState("");
@@ -223,7 +233,12 @@ function GoalDetailPage() {
     const amount = Number(formData.amount);
 
     if (amount <= 0) {
-      setError("Contribution amount must be greater than zero.");
+      setError("Amount must be greater than zero.");
+      return;
+    }
+
+    if (formData.entry_type === "withdrawal" && amount > goal.saved_amount) {
+      setError("You cannot subtract more than the amount currently saved.");
       return;
     }
 
@@ -232,12 +247,14 @@ function GoalDetailPage() {
     try {
       const data = await createContribution(goalId, {
         amount,
+        entry_type: formData.entry_type,
         note: formData.note.trim(),
       });
 
       setGoal(data.goal);
       setFormData({
         amount: "",
+        entry_type: "deposit",
         note: "",
       });
     } catch (err) {
@@ -356,10 +373,21 @@ function GoalDetailPage() {
         </article>
 
         <article className="contribution-card">
-          <h2>Add Contribution</h2>
-          <p>Log money saved toward this goal.</p>
+          <h2>Savings Activity</h2>
+          <p>Add money to this goal or subtract from savings when plans change.</p>
 
           <form className="goal-form" onSubmit={handleSubmit}>
+            <label htmlFor="entry_type">Activity Type</label>
+            <select
+              id="entry_type"
+              name="entry_type"
+              value={formData.entry_type}
+              onChange={handleChange}
+            >
+              <option value="deposit">Add to savings</option>
+              <option value="withdrawal">Subtract from savings</option>
+            </select>
+
             <label htmlFor="amount">Amount</label>
             <input
               id="amount"
@@ -378,13 +406,21 @@ function GoalDetailPage() {
               id="note"
               name="note"
               type="text"
-              placeholder="Example: Extra savings deposit"
+              placeholder={
+                formData.entry_type === "withdrawal"
+                  ? "Example: Needed to pull from savings"
+                  : "Example: Extra savings deposit"
+              }
               value={formData.note}
               onChange={handleChange}
             />
 
             <button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Contribution"}
+              {isSubmitting
+                ? "Saving..."
+                : formData.entry_type === "withdrawal"
+                ? "Subtract from Savings"
+                : "Add to Savings"}
             </button>
           </form>
         </article>
@@ -525,40 +561,54 @@ function GoalDetailPage() {
 
       <section className="dashboard-section">
         <div className="section-header">
-          <h2>Contribution History</h2>
+          <h2>Savings Activity History</h2>
           <p>
-            {contributions.length} contribution
-            {contributions.length === 1 ? "" : "s"}
+            {contributions.length} activit
+            {contributions.length === 1 ? "y" : "ies"}
           </p>
         </div>
 
         {contributions.length > 0 ? (
           <div className="contribution-list">
-            {contributions.map((contribution) => (
-              <article className="contribution-item" key={contribution.id}>
-                <div>
-                  <strong>${formatCurrency(contribution.amount)}</strong>
-                  <p>{contribution.note || "No note added"}</p>
-                  <span>
-                    {new Date(
-                      contribution.contribution_date
-                    ).toLocaleDateString()}
-                  </span>
-                </div>
+            {contributions.map((contribution) => {
+              const entryType = contribution.entry_type || "deposit";
+              const isWithdrawal = entryType === "withdrawal";
 
-                <button
-                  type="button"
-                  onClick={() => handleDeleteContribution(contribution.id)}
+              return (
+                <article
+                  className={`contribution-item ${
+                    isWithdrawal ? "withdrawal-item" : "deposit-item"
+                  }`}
+                  key={contribution.id}
                 >
-                  Delete
-                </button>
-              </article>
-            ))}
+                  <div>
+                    <strong>
+                      {isWithdrawal ? "-" : "+"}$
+                      {formatCurrency(contribution.amount)}
+                    </strong>
+                    <p>{contribution.note || "No note added"}</p>
+                    <span>
+                      {entryType === "withdrawal" ? "Withdrawal" : "Deposit"} ·{" "}
+                      {new Date(
+                        contribution.contribution_date
+                      ).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteContribution(contribution.id)}
+                  >
+                    Delete
+                  </button>
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state">
-            <h3>No contributions yet</h3>
-            <p>Add your first contribution to start building momentum.</p>
+            <h3>No savings activity yet</h3>
+            <p>Add your first savings activity to start building momentum.</p>
           </div>
         )}
       </section>
