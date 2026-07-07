@@ -1,5 +1,7 @@
 from datetime import datetime
 from math import ceil
+import json
+
 from extensions import db
 
 
@@ -14,6 +16,13 @@ class User(db.Model):
     # Relationship: One User can have many Goals
     goals = db.relationship(
         'Goal',
+        backref='user',
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+
+    advisor_responses = db.relationship(
+        'SmartAdvisorResponse',
         backref='user',
         lazy=True,
         cascade="all, delete-orphan"
@@ -55,6 +64,13 @@ class Goal(db.Model):
     # Relationship: One Goal can have many Contributions
     contributions = db.relationship(
         'Contribution',
+        backref='goal',
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+
+    advisor_responses = db.relationship(
+        'SmartAdvisorResponse',
         backref='goal',
         lazy=True,
         cascade="all, delete-orphan"
@@ -167,4 +183,43 @@ class Contribution(db.Model):
             "entry_type": self.entry_type,
             "note": self.note,
             "contribution_date": self.contribution_date.isoformat() if self.contribution_date else None
+        }
+
+
+class SmartAdvisorResponse(db.Model):
+    __tablename__ = 'smart_advisor_responses'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=True)
+
+    context_type = db.Column(db.String(30), nullable=False, default="general")
+    user_message = db.Column(db.Text, nullable=False)
+    response_json = db.Column(db.Text, nullable=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<SmartAdvisorResponse user={self.user_id} context={self.context_type}>'
+
+    def parsed_response(self):
+        try:
+            return json.loads(self.response_json)
+        except json.JSONDecodeError:
+            return {
+                "summary": self.response_json,
+                "recommendations": [],
+                "action_items": []
+            }
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "goal_id": self.goal_id,
+            "context_type": self.context_type,
+            "user_message": self.user_message,
+            "response": self.parsed_response(),
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }
