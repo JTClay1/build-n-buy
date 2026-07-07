@@ -1122,3 +1122,183 @@ a:hover {
   color: var(--green-950);
   font-size: 1.05rem;
 }
+
+.advisor-widget {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+}
+
+.advisor-floating-button {
+  position: relative;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 20px;
+  background: var(--green-700);
+  color: white;
+  font-weight: 900;
+  box-shadow: 0 18px 40px rgba(15, 45, 35, 0.24);
+  cursor: pointer;
+}
+
+.advisor-floating-button:hover {
+  background: var(--green-800);
+}
+
+.advisor-notification-dot {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #f4c95d;
+  border: 2px solid white;
+}
+
+.advisor-panel {
+  position: absolute;
+  right: 0;
+  bottom: 62px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 120px));
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(15, 45, 35, 0.14);
+  border-radius: 28px;
+  box-shadow: 0 28px 75px rgba(15, 45, 35, 0.24);
+  padding: 24px;
+}
+
+.advisor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.advisor-header h2 {
+  margin: 2px 0 6px;
+  color: var(--green-950);
+}
+
+.advisor-header span {
+  color: var(--green-700);
+  font-weight: 800;
+}
+
+.advisor-close-button {
+  border: none;
+  background: rgba(15, 45, 35, 0.08);
+  color: var(--green-950);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.advisor-quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.advisor-quick-prompts button {
+  border: 1px solid rgba(52, 122, 85, 0.24);
+  background: rgba(52, 122, 85, 0.08);
+  color: var(--green-800);
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.advisor-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.advisor-form textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 45, 35, 0.18);
+  padding: 14px;
+  font: inherit;
+  color: var(--green-950);
+}
+
+.advisor-form button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: var(--green-700);
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.advisor-form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.advisor-muted {
+  color: var(--green-700);
+  font-weight: 700;
+}
+
+.advisor-response-card,
+.advisor-empty-state {
+  background: rgba(15, 45, 35, 0.05);
+  border: 1px solid rgba(15, 45, 35, 0.1);
+  border-radius: 22px;
+  padding: 18px;
+}
+
+.advisor-response-card h3,
+.advisor-empty-state h3 {
+  margin-top: 0;
+  color: var(--green-950);
+}
+
+.advisor-response-card h4 {
+  margin-bottom: 8px;
+  color: var(--green-950);
+}
+
+.advisor-response-card ul {
+  margin-top: 0;
+  padding-left: 20px;
+  color: var(--green-800);
+  font-weight: 650;
+}
+
+.advisor-response-card li {
+  margin-bottom: 8px;
+}
+
+.advisor-note {
+  margin-bottom: 0;
+  color: var(--green-700);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .advisor-widget {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .advisor-panel {
+    right: -8px;
+    bottom: 58px;
+  }
+}

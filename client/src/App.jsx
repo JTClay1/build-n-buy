@@ -11,6 +11,7 @@ import GoalDetailPage from "./pages/GoalDetailPage";
 import EditGoalPage from "./pages/EditGoalPage";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
+import SmartAdvisorWidget from "./components/SmartAdvisorWidget";
 
 function App() {
   return (
@@ -75,6 +76,8 @@ function App() {
           }
         />
       </Routes>
+
+      <SmartAdvisorWidget />
     </>
   );
 }
