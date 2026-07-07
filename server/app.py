@@ -1,7 +1,6 @@
 from flask import Flask
 from config import Config
 from extensions import db, migrate, bcrypt, jwt, cors
-from routes.contribution_routes import contribution_bp
 
 # Import models so Flask-Migrate knows about them!
 import models
@@ -21,12 +20,14 @@ from routes.auth_routes import auth_bp
 from routes.goal_routes import goal_bp
 from routes.contribution_routes import contribution_bp
 from routes.dashboard_routes import dashboard_bp
+from routes.advisor_routes import advisor_bp
 
 # Register Blueprints with a URL prefix
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(goal_bp, url_prefix='/api/goals')
 app.register_blueprint(contribution_bp, url_prefix="/api")
 app.register_blueprint(dashboard_bp, url_prefix="/api")
+app.register_blueprint(advisor_bp, url_prefix="/api")
 
 # A simple health check route
 @app.route('/')
