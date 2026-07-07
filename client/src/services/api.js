@@ -88,3 +88,16 @@ export function deleteContribution(contributionId) {
     method: "DELETE",
   });
 }
+
+export async function createAdvisorResponse(advisorData) {
+  return apiRequest("/advisor", {
+    method: "POST",
+    body: JSON.stringify(advisorData),
+  });
+}
+
+export async function getAdvisorHistory(goalId = null) {
+  const queryString = goalId ? `?goal_id=${goalId}` : "";
+
+  return apiRequest(`/advisor/history${queryString}`);
+}
