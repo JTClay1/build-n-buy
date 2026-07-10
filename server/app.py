@@ -23,6 +23,7 @@ from routes.dashboard_routes import dashboard_bp
 from routes.advisor_routes import advisor_bp
 from routes.notification_routes import notification_bp
 from routes.budget_routes import budget_bp
+from routes.price_routes import price_bp
 
 # Register Blueprints with a URL prefix
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -32,6 +33,7 @@ app.register_blueprint(dashboard_bp, url_prefix="/api")
 app.register_blueprint(advisor_bp, url_prefix="/api")
 app.register_blueprint(notification_bp, url_prefix="/api")
 app.register_blueprint(budget_bp, url_prefix="/api")
+app.register_blueprint(price_bp, url_prefix="/api")
 
 # A simple health check route
 @app.route('/')
