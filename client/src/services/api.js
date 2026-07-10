@@ -40,6 +40,20 @@ export function loginUser(credentials) {
   });
 }
 
+export async function updateProfile(profileData) {
+  return apiRequest("/auth/profile", {
+    method: "PATCH",
+    body: JSON.stringify(profileData),
+  });
+}
+
+export async function updatePassword(passwordData) {
+  return apiRequest("/auth/password", {
+    method: "PATCH",
+    body: JSON.stringify(passwordData),
+  });
+}
+
 export function getCurrentUser() {
   return apiRequest("/auth/me");
 }

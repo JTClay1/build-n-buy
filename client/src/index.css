@@ -1440,3 +1440,44 @@ a:hover {
 .advisor-empty-state.compact {
   padding: 14px;
 }
+
+.profile-page-header {
+  max-width: 760px;
+  margin-bottom: 28px;
+}
+
+.profile-page-header h1 {
+  margin: 0 0 12px;
+  color: var(--green-950);
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+
+.profile-card {
+  width: 100%;
+}
+
+.profile-card h2 {
+  margin-top: 0;
+  color: var(--green-950);
+}
+
+.success-message {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+  font-weight: 800;
+  border: 1px solid rgba(52, 122, 85, 0.24);
+}
+
+@media (max-width: 900px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
