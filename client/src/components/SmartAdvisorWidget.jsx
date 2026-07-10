@@ -3,7 +3,11 @@ import { useLocation } from "react-router-dom";
 
 import {
   createAdvisorResponse,
+  createDemoNotification,
   getAdvisorHistory,
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
 } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -61,12 +65,36 @@ function SmartAdvisorWidget() {
   );
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [message, setMessage] = useState("");
   const [advisorHistory, setAdvisorHistory] = useState([]);
   const [currentResponse, setCurrentResponse] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [error, setError] = useState("");
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function loadNotifications() {
+    if (!isAuthenticated) return;
+
+    setIsLoadingNotifications(true);
+
+    try {
+      const data = await getNotifications();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unread_count || 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     async function loadHistory() {
@@ -135,6 +163,57 @@ function SmartAdvisorWidget() {
     setMessage(prompt);
   }
 
+  async function handleCreateDemoNotification() {
+    setError("");
+
+    try {
+      await createDemoNotification(pageContext.goal_id);
+      await loadNotifications();
+      setShowNotifications(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleReadNotification(notificationId) {
+    setError("");
+
+    try {
+      const data = await markNotificationRead(notificationId);
+
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) =>
+          notification.id === notificationId
+            ? data.notification
+            : notification
+        )
+      );
+
+      setUnreadCount(data.unread_count || 0);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleReadAllNotifications() {
+    setError("");
+
+    try {
+      await markAllNotificationsRead();
+
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) => ({
+          ...notification,
+          is_read: true,
+        }))
+      );
+
+      setUnreadCount(0);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   const responseToShow = currentResponse || advisorHistory[0] || null;
   const response = responseToShow?.response;
 
@@ -149,15 +228,97 @@ function SmartAdvisorWidget() {
               <span>{pageContext.label}</span>
             </div>
 
-            <button
-              type="button"
-              className="advisor-close-button"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close Smart Buy Advisor"
-            >
-              ×
-            </button>
+            <div className="advisor-header-actions">
+              <button
+                type="button"
+                className="advisor-bell-button"
+                onClick={() =>
+                  setShowNotifications((currentValue) => !currentValue)
+                }
+                aria-label="Open notifications"
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span className="advisor-bell-count">{unreadCount}</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="advisor-close-button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close Smart Buy Advisor"
+              >
+                ×
+              </button>
+            </div>
           </div>
+
+          {showNotifications && (
+            <section className="advisor-notifications-panel">
+              <div className="advisor-notifications-header">
+                <h3>Notifications</h3>
+
+                {unreadCount > 0 && (
+                  <button type="button" onClick={handleReadAllNotifications}>
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="advisor-demo-alert-button"
+                onClick={handleCreateDemoNotification}
+              >
+                Create demo price alert
+              </button>
+
+              {isLoadingNotifications ? (
+                <p className="advisor-muted">Loading notifications...</p>
+              ) : notifications.length > 0 ? (
+                <div className="advisor-notification-list">
+                  {notifications.map((notification) => (
+                    <article
+                      key={notification.id}
+                      className={`advisor-notification-item ${
+                        notification.is_read ? "read" : "unread"
+                      }`}
+                    >
+                      <div>
+                        <h4>{notification.title}</h4>
+                        <p>{notification.message}</p>
+                        <span>
+                          {new Date(
+                            notification.created_at
+                          ).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      {!notification.is_read && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleReadNotification(notification.id)
+                          }
+                        >
+                          Mark read
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="advisor-empty-state compact">
+                  <h3>No notifications yet</h3>
+                  <p>
+                    Future price alerts, sale updates, and advisor reminders
+                    will show up here.
+                  </p>
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="advisor-quick-prompts">
             {pageContext.quickPrompts.map((prompt) => (
@@ -235,7 +396,9 @@ function SmartAdvisorWidget() {
         className="advisor-floating-button"
         onClick={() => setIsOpen((currentValue) => !currentValue)}
       >
-        <span className="advisor-notification-dot"></span>
+        {unreadCount > 0 && (
+          <span className="advisor-floating-count">{unreadCount}</span>
+        )}
         {isOpen ? "Close Advisor" : "Ask Advisor"}
       </button>
     </div>
