@@ -138,3 +138,27 @@ export async function markAllNotificationsRead() {
     method: "PATCH",
   });
 }
+
+export async function getBudgetItems() {
+  return apiRequest("/budget-items");
+}
+
+export async function createBudgetItem(budgetItemData) {
+  return apiRequest("/budget-items", {
+    method: "POST",
+    body: JSON.stringify(budgetItemData),
+  });
+}
+
+export async function updateBudgetItem(itemId, budgetItemData) {
+  return apiRequest(`/budget-items/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(budgetItemData),
+  });
+}
+
+export async function deleteBudgetItem(itemId) {
+  return apiRequest(`/budget-items/${itemId}`, {
+    method: "DELETE",
+  });
+}

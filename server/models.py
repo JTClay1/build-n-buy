@@ -37,6 +37,13 @@ class User(db.Model):
         cascade="all, delete-orphan"
     )    
 
+    budget_items = db.relationship(
+        'BudgetItem',
+        backref='user',
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -280,4 +287,51 @@ class Notification(db.Model):
             "is_read": self.is_read,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "read_at": self.read_at.isoformat() if self.read_at else None
+        }
+    
+class BudgetItem(db.Model):
+    __tablename__ = 'budget_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    title = db.Column(db.String(120), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+
+    # income or expense
+    item_type = db.Column(db.String(20), nullable=False)
+
+    category = db.Column(db.String(80))
+    note = db.Column(db.String(255))
+
+    is_active = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=True,
+        server_default="1"
+    )
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    def __repr__(self):
+        return f'<BudgetItem {self.item_type} {self.title} ${self.amount}>'
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "title": self.title,
+            "amount": self.amount,
+            "item_type": self.item_type,
+            "category": self.category,
+            "note": self.note,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
