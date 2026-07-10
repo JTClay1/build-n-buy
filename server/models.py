@@ -28,6 +28,13 @@ class User(db.Model):
         cascade="all, delete-orphan"
     )
 
+    notifications = db.relationship(
+        'Notification',
+        backref='user',
+        lazy=True,
+        cascade="all, delete-orphan"
+    )    
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -222,4 +229,51 @@ class SmartAdvisorResponse(db.Model):
             "user_message": self.user_message,
             "response": self.parsed_response(),
             "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+    
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=True)
+
+    title = db.Column(db.String(120), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    notification_type = db.Column(
+        db.String(30),
+        nullable=False,
+        default="info",
+        server_default="info"
+    )
+
+    is_read = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        server_default="0"
+    )
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return f'<Notification {self.title} user={self.user_id}>'
+
+    def mark_read(self):
+        self.is_read = True
+        self.read_at = datetime.utcnow()
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "goal_id": self.goal_id,
+            "title": self.title,
+            "message": self.message,
+            "notification_type": self.notification_type,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "read_at": self.read_at.isoformat() if self.read_at else None
         }

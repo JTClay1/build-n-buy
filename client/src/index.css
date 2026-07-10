@@ -1302,3 +1302,141 @@ a:hover {
     bottom: 58px;
   }
 }
+
+.advisor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.advisor-bell-button {
+  position: relative;
+  border: none;
+  background: rgba(15, 45, 35, 0.08);
+  color: var(--green-950);
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+
+.advisor-bell-count,
+.advisor-floating-count {
+  position: absolute;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f4c95d;
+  color: var(--green-950);
+  border: 2px solid white;
+  font-size: 0.72rem;
+  font-weight: 950;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.advisor-bell-count {
+  top: -5px;
+  right: -5px;
+}
+
+.advisor-floating-count {
+  top: -7px;
+  right: -7px;
+}
+
+.advisor-notifications-panel {
+  background: rgba(15, 45, 35, 0.05);
+  border: 1px solid rgba(15, 45, 35, 0.1);
+  border-radius: 22px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.advisor-notifications-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.advisor-notifications-header h3 {
+  margin: 0;
+  color: var(--green-950);
+}
+
+.advisor-notifications-header button,
+.advisor-demo-alert-button {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.advisor-demo-alert-button {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.advisor-notification-list {
+  display: grid;
+  gap: 10px;
+}
+
+.advisor-notification-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 45, 35, 0.1);
+  background: white;
+}
+
+.advisor-notification-item.unread {
+  border-left: 5px solid #f4c95d;
+}
+
+.advisor-notification-item.read {
+  opacity: 0.72;
+}
+
+.advisor-notification-item h4 {
+  margin: 0 0 5px;
+  color: var(--green-950);
+}
+
+.advisor-notification-item p {
+  margin: 0 0 6px;
+  color: var(--green-800);
+  font-weight: 650;
+}
+
+.advisor-notification-item span {
+  color: var(--green-700);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.advisor-notification-item button {
+  align-self: flex-start;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: var(--green-700);
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.advisor-empty-state.compact {
+  padding: 14px;
+}

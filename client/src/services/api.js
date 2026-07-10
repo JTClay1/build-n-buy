@@ -101,3 +101,26 @@ export async function getAdvisorHistory(goalId = null) {
 
   return apiRequest(`/advisor/history${queryString}`);
 }
+
+export async function getNotifications() {
+  return apiRequest("/notifications");
+}
+
+export async function createDemoNotification(goalId = null) {
+  return apiRequest("/notifications/demo", {
+    method: "POST",
+    body: JSON.stringify(goalId ? { goal_id: goalId } : {}),
+  });
+}
+
+export async function markNotificationRead(notificationId) {
+  return apiRequest(`/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+}
+
+export async function markAllNotificationsRead() {
+  return apiRequest("/notifications/read-all", {
+    method: "PATCH",
+  });
+}
