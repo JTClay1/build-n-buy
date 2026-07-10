@@ -93,6 +93,12 @@ class Goal(db.Model):
         lazy=True,
         cascade="all, delete-orphan"
     )
+    retailer_prices = db.relationship(
+        'RetailerPrice',
+        backref='goal',
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f'<Goal {self.item_name} - ${self.target_amount}>'
@@ -135,6 +141,21 @@ class Goal(db.Model):
             return round(remaining, 2)
 
         return round(remaining / months_left, 2)
+    
+    def lowest_retailer_price(self):
+        active_prices = [
+            retailer_price
+            for retailer_price in self.retailer_prices
+            if retailer_price.is_active
+        ]
+
+        if not active_prices:
+            return None
+
+        return min(
+            active_prices,
+            key=lambda retailer_price: retailer_price.total_price()
+        )
 
     def to_dict(self, include_contributions=True):
         data = {
@@ -154,6 +175,7 @@ class Goal(db.Model):
             "months_remaining": self.months_remaining(),
             "monthly_target": self.calculated_monthly_target(),
             "target_date": self.target_date.isoformat() if self.target_date else None,
+            "lowest_retailer_price": self.lowest_retailer_price().to_dict() if self.lowest_retailer_price() else None,
 
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None
@@ -332,6 +354,83 @@ class BudgetItem(db.Model):
             "category": self.category,
             "note": self.note,
             "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+class RetailerPrice(db.Model):
+    __tablename__ = 'retailer_prices'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=False)
+
+    retailer_name = db.Column(db.String(120), nullable=False)
+    product_url = db.Column(db.String(500))
+
+    price = db.Column(db.Float, nullable=False)
+    shipping_cost = db.Column(
+        db.Float,
+        nullable=False,
+        default=0.0,
+        server_default="0"
+    )
+    tax_estimate = db.Column(
+        db.Float,
+        nullable=False,
+        default=0.0,
+        server_default="0"
+    )
+
+    is_preferred = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        server_default="0"
+    )
+
+    is_active = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=True,
+        server_default="1"
+    )
+
+    note = db.Column(db.String(255))
+
+    last_checked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    def __repr__(self):
+        return f'<RetailerPrice {self.retailer_name} ${self.price} goal={self.goal_id}>'
+
+    def total_price(self):
+        return round(
+            float(self.price or 0)
+            + float(self.shipping_cost or 0)
+            + float(self.tax_estimate or 0),
+            2
+        )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "goal_id": self.goal_id,
+            "retailer_name": self.retailer_name,
+            "product_url": self.product_url,
+            "price": self.price,
+            "shipping_cost": self.shipping_cost,
+            "tax_estimate": self.tax_estimate,
+            "total_price": self.total_price(),
+            "is_preferred": self.is_preferred,
+            "is_active": self.is_active,
+            "note": self.note,
+            "last_checked_at": self.last_checked_at.isoformat() if self.last_checked_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import PriceComparisonCard from "../components/PriceComparisonCard";
 
 import {
   createContribution,
@@ -558,6 +559,8 @@ function GoalDetailPage() {
           </div>
         </article>
       </section>
+
+       {goal && <PriceComparisonCard goalId={goal.id} />}
 
       <section className="dashboard-section">
         <div className="section-header">

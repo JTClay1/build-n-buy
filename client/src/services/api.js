@@ -162,3 +162,26 @@ export async function deleteBudgetItem(itemId) {
     method: "DELETE",
   });
 }
+export async function getGoalPrices(goalId) {
+  return apiRequest(`/goals/${goalId}/prices`);
+}
+
+export async function createGoalPrice(goalId, priceData) {
+  return apiRequest(`/goals/${goalId}/prices`, {
+    method: "POST",
+    body: JSON.stringify(priceData),
+  });
+}
+
+export async function updateGoalPrice(priceId, priceData) {
+  return apiRequest(`/prices/${priceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(priceData),
+  });
+}
+
+export async function deleteGoalPrice(priceId) {
+  return apiRequest(`/prices/${priceId}`, {
+    method: "DELETE",
+  });
+}
