@@ -12,6 +12,8 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
+    display_name = db.Column(db.String(80))
+    monthly_budget = db.Column(db.Float)
 
     # Relationship: One User can have many Goals
     goals = db.relationship(
@@ -42,7 +44,9 @@ class User(db.Model):
         return {
             "id": self.id,
             "username": self.username,
-            "email": self.email
+            "email": self.email,
+            "display_name": self.display_name,
+            "monthly_budget": self.monthly_budget
         }
 
 

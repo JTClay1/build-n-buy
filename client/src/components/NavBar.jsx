@@ -22,6 +22,7 @@ function NavBar() {
           <>
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/goals/new">New Goal</Link>
+            <Link to="/profile">Profile</Link>
             <span>{user?.username}</span>
             <button onClick={handleLogout}>Logout</button>
           </>

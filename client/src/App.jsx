@@ -12,6 +12,7 @@ import EditGoalPage from "./pages/EditGoalPage";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import SmartAdvisorWidget from "./components/SmartAdvisorWidget";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
@@ -74,6 +75,15 @@ function App() {
               <EditGoalPage />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+           path="/profile"
+           element={
+             <ProtectedRoute>
+               <ProfilePage />
+             </ProtectedRoute>
+           }
         />
       </Routes>
 
