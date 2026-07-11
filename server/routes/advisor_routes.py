@@ -1,6 +1,18 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
+import os
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 from extensions import db
 from models import BudgetItem, Goal, SmartAdvisorResponse
@@ -630,24 +642,7 @@ def build_general_advice(message, budget_context, price_context):
     }
 
 
-@advisor_bp.route("/advisor", methods=["POST"])
-@jwt_required()
-def create_advisor_response():
-    user_id = int(get_jwt_identity())
-    data = request.get_json() or {}
-
-    message = data.get("message", "").strip()
-    context_type = data.get("context_type", "general")
-    goal_id = data.get("goal_id")
-
-    allowed_contexts = ["general", "goal", "dashboard"]
-
-    if context_type not in allowed_contexts:
-        return jsonify({"error": "Invalid advisor context type"}), 400
-
-    if not message:
-        return jsonify({"error": "Message is required"}), 400
-
+def build_rule_based_advisor_response(user_id, message, context_type, goal_id):
     budget_context = build_budget_context(user_id)
 
     all_user_goals = Goal.query.filter_by(user_id=user_id).all()
@@ -657,12 +652,12 @@ def create_advisor_response():
 
     if context_type == "goal":
         if not goal_id:
-            return jsonify({"error": "goal_id is required for goal context"}), 400
+            return None, None, ("goal_id is required for goal context", 400)
 
         goal = Goal.query.filter_by(id=goal_id, user_id=user_id).first()
 
         if not goal:
-            return jsonify({"error": "Goal not found"}), 404
+            return None, None, ("Goal not found", 404)
 
         goal_price_context = build_price_context_for_goal(goal)
 
@@ -687,6 +682,236 @@ def create_advisor_response():
             budget_context,
             dashboard_price_context
         )
+
+    advisor_response["response_source"] = "rule_based"
+
+    return advisor_response, goal, None
+
+
+def get_response_text(openai_response):
+    if hasattr(openai_response, "output_text") and openai_response.output_text:
+        return openai_response.output_text
+
+    try:
+        response_dict = openai_response.model_dump()
+    except AttributeError:
+        return ""
+
+    output_items = response_dict.get("output", [])
+
+    for output_item in output_items:
+        content_items = output_item.get("content", [])
+
+        for content_item in content_items:
+            if content_item.get("type") in ["output_text", "text"]:
+                return content_item.get("text", "")
+
+    return ""
+
+
+def normalize_string_list(value, fallback_items, max_items=6):
+    if not isinstance(value, list):
+        return fallback_items[:max_items]
+
+    cleaned_items = []
+
+    for item in value:
+        if isinstance(item, str) and item.strip():
+            cleaned_items.append(item.strip())
+
+    if not cleaned_items:
+        return fallback_items[:max_items]
+
+    return cleaned_items[:max_items]
+
+
+def build_ai_advisor_response(message, context_type, rule_based_response):
+    api_key = os.getenv("OPENAI_API_KEY")
+    model = os.getenv("OPENAI_ADVISOR_MODEL", "gpt-5.6-luna")
+
+    if not api_key or OpenAI is None:
+        return None
+
+    client = OpenAI(api_key=api_key, timeout=25)
+
+    payload = {
+        "user_message": message,
+        "context_type": context_type,
+        "rule_based_response": rule_based_response
+    }
+
+    system_prompt = """
+You are Smart Advisor for Build n' Buy, a save-first purchase planning app.
+
+Use the provided backend context as the source of truth.
+Do not invent goals, prices, income, expenses, stores, dates, or savings amounts.
+Do not tell the user to use credit cards, debt, loans, financing, or buy-now-pay-later.
+Keep the advice practical, concise, and friendly.
+The tone should sound human, not like a spreadsheet.
+Mention tracked prices and retailer differences when relevant.
+Mention budget pressure when relevant.
+Return JSON only.
+
+Required JSON shape:
+{
+  "summary": "string",
+  "recommendations": ["string"],
+  "action_items": ["string"],
+  "advisor_note": "string"
+}
+"""
+
+    user_prompt = json.dumps(payload, default=str)
+
+    try:
+        openai_response = client.responses.create(
+            model=model,
+            input=[
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "build_n_buy_advisor_response",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": [
+                            "summary",
+                            "recommendations",
+                            "action_items",
+                            "advisor_note"
+                        ],
+                        "properties": {
+                            "summary": {
+                                "type": "string"
+                            },
+                            "recommendations": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 6,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "action_items": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 5,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "advisor_note": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            max_output_tokens=900
+        )
+
+        response_text = get_response_text(openai_response)
+
+        if not response_text:
+            return None
+
+        ai_response = json.loads(response_text)
+
+        fallback_recommendations = rule_based_response.get("recommendations", [])
+        fallback_action_items = rule_based_response.get("action_items", [])
+
+        return {
+            "summary": ai_response.get(
+                "summary",
+                rule_based_response.get("summary", "")
+            ),
+            "recommendations": normalize_string_list(
+                ai_response.get("recommendations"),
+                fallback_recommendations,
+                max_items=6
+            ),
+            "action_items": normalize_string_list(
+                ai_response.get("action_items"),
+                fallback_action_items,
+                max_items=5
+            ),
+            "advisor_note": ai_response.get(
+                "advisor_note",
+                rule_based_response.get(
+                    "advisor_note",
+                    "This is a planning recommendation, not financial advice."
+                )
+            )
+        }
+
+    except Exception as error:
+        print(f"OpenAI advisor fallback used: {error}")
+        return None
+
+
+def merge_ai_response(rule_based_response, ai_response):
+    if not ai_response:
+        return rule_based_response
+
+    return {
+        "summary": ai_response["summary"],
+        "context_used": rule_based_response["context_used"],
+        "recommendations": ai_response["recommendations"],
+        "action_items": ai_response["action_items"],
+        "advisor_note": ai_response["advisor_note"],
+        "response_source": "openai"
+    }
+
+
+@advisor_bp.route("/advisor", methods=["POST"])
+@jwt_required()
+def create_advisor_response():
+    user_id = int(get_jwt_identity())
+    data = request.get_json() or {}
+
+    message = data.get("message", "").strip()
+    context_type = data.get("context_type", "general")
+    goal_id = data.get("goal_id")
+
+    allowed_contexts = ["general", "goal", "dashboard"]
+
+    if context_type not in allowed_contexts:
+        return jsonify({"error": "Invalid advisor context type"}), 400
+
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+
+    rule_based_response, goal, error_result = build_rule_based_advisor_response(
+        user_id,
+        message,
+        context_type,
+        goal_id
+    )
+
+    if error_result:
+        error_message, status_code = error_result
+        return jsonify({"error": error_message}), status_code
+
+    ai_response = build_ai_advisor_response(
+        message,
+        context_type,
+        rule_based_response
+    )
+
+    advisor_response = merge_ai_response(
+        rule_based_response,
+        ai_response
+    )
 
     saved_response = SmartAdvisorResponse(
         user_id=user_id,
