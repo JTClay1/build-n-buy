@@ -119,15 +119,238 @@ def build_budget_recommendations(budget_context):
     return recommendations, action_items
 
 
-def build_goal_advice(goal, message, budget_context):
+def build_price_context_for_goal(goal):
+    active_prices = [
+        retailer_price
+        for retailer_price in goal.retailer_prices
+        if retailer_price.is_active
+    ]
+
+    if not active_prices:
+        return {
+            "has_tracked_prices": False,
+            "price_count": 0,
+            "lowest_price": None,
+            "highest_price": None,
+            "preferred_price": None,
+            "average_total_price": 0,
+            "target_vs_lowest_difference": None,
+            "preferred_vs_lowest_difference": None,
+            "tracked_prices": []
+        }
+
+    lowest_price = min(
+        active_prices,
+        key=lambda retailer_price: retailer_price.total_price()
+    )
+
+    highest_price = max(
+        active_prices,
+        key=lambda retailer_price: retailer_price.total_price()
+    )
+
+    preferred_price = next(
+        (
+            retailer_price
+            for retailer_price in active_prices
+            if retailer_price.is_preferred
+        ),
+        None
+    )
+
+    average_total_price = sum(
+        retailer_price.total_price() for retailer_price in active_prices
+    ) / len(active_prices)
+
+    preferred_vs_lowest_difference = None
+
+    if preferred_price:
+        preferred_vs_lowest_difference = round(
+            preferred_price.total_price() - lowest_price.total_price(),
+            2
+        )
+
+    return {
+        "has_tracked_prices": True,
+        "price_count": len(active_prices),
+        "lowest_price": lowest_price.to_dict(),
+        "highest_price": highest_price.to_dict(),
+        "preferred_price": preferred_price.to_dict() if preferred_price else None,
+        "average_total_price": round(average_total_price, 2),
+        "target_vs_lowest_difference": round(
+            goal.target_amount - lowest_price.total_price(),
+            2
+        ),
+        "preferred_vs_lowest_difference": preferred_vs_lowest_difference,
+        "tracked_prices": [
+            retailer_price.to_dict() for retailer_price in active_prices
+        ]
+    }
+
+
+def build_price_recommendations_for_goal(price_context):
+    recommendations = []
+    action_items = []
+
+    if not price_context["has_tracked_prices"]:
+        recommendations.append(
+            "Add a few retailer prices for this goal so Smart Advisor can compare stores and spot better deals."
+        )
+        action_items.append(
+            "Add prices from at least two stores on the goal detail page."
+        )
+
+        return recommendations, action_items
+
+    lowest_price = price_context["lowest_price"]
+    preferred_price = price_context["preferred_price"]
+    target_vs_lowest_difference = price_context["target_vs_lowest_difference"]
+    preferred_vs_lowest_difference = price_context["preferred_vs_lowest_difference"]
+
+    recommendations.append(
+        f"The lowest tracked price is {format_currency(lowest_price['total_price'])} at {lowest_price['retailer_name']}."
+    )
+
+    if preferred_price:
+        if preferred_price["id"] == lowest_price["id"]:
+            recommendations.append(
+                f"Your preferred retailer, {preferred_price['retailer_name']}, is currently also the lowest tracked option."
+            )
+        elif preferred_vs_lowest_difference and preferred_vs_lowest_difference > 0:
+            recommendations.append(
+                f"{lowest_price['retailer_name']} is currently {format_currency(preferred_vs_lowest_difference)} cheaper than your preferred retailer, {preferred_price['retailer_name']}."
+            )
+        else:
+            recommendations.append(
+                "Your preferred retailer is close to the lowest tracked price, so compare return policy, warranty, and pickup/shipping convenience before choosing."
+            )
+    else:
+        recommendations.append(
+            "Mark one tracked store as preferred so Smart Advisor can compare your preferred retailer against the lowest price."
+        )
+
+    if target_vs_lowest_difference is not None:
+        if target_vs_lowest_difference > 0:
+            recommendations.append(
+                f"Your goal target is {format_currency(target_vs_lowest_difference)} higher than the lowest tracked price, so you may be able to finish this goal sooner or keep the extra cushion."
+            )
+        elif target_vs_lowest_difference < 0:
+            recommendations.append(
+                f"The lowest tracked price is {format_currency(abs(target_vs_lowest_difference))} higher than your goal target, so consider updating the target amount."
+            )
+        else:
+            recommendations.append(
+                "Your goal target matches the current lowest tracked price."
+            )
+
+    action_items.append(
+        "Verify the lowest price still includes shipping, tax, and the correct product version before buying."
+    )
+
+    if price_context["price_count"] < 3:
+        action_items.append(
+            "Add one more retailer price to make the comparison more reliable."
+        )
+
+    return recommendations, action_items
+
+
+def build_dashboard_price_context(goals):
+    active_goals = [goal for goal in goals if goal.status == "active"]
+
+    goal_price_contexts = []
+
+    for goal in active_goals:
+        price_context = build_price_context_for_goal(goal)
+
+        if price_context["has_tracked_prices"]:
+            goal_price_contexts.append({
+                "goal_id": goal.id,
+                "item_name": goal.item_name,
+                "monthly_target": goal.calculated_monthly_target(),
+                "price_context": price_context
+            })
+
+    potential_preferred_savings = 0
+
+    for goal_context in goal_price_contexts:
+        difference = goal_context["price_context"]["preferred_vs_lowest_difference"]
+
+        if difference and difference > 0:
+            potential_preferred_savings += difference
+
+    goals_with_target_cushion = [
+        goal_context
+        for goal_context in goal_price_contexts
+        if goal_context["price_context"]["target_vs_lowest_difference"] is not None
+        and goal_context["price_context"]["target_vs_lowest_difference"] > 0
+    ]
+
+    goals_with_target_cushion.sort(
+        key=lambda goal_context: goal_context["price_context"]["target_vs_lowest_difference"],
+        reverse=True
+    )
+
+    return {
+        "goals_with_prices": len(goal_price_contexts),
+        "potential_preferred_savings": round(potential_preferred_savings, 2),
+        "goals_with_target_cushion": goals_with_target_cushion[:3],
+        "goal_price_contexts": goal_price_contexts
+    }
+
+
+def build_dashboard_price_recommendations(price_context):
+    recommendations = []
+    action_items = []
+
+    if price_context["goals_with_prices"] == 0:
+        recommendations.append(
+            "None of your active goals have tracked store prices yet."
+        )
+        action_items.append(
+            "Open your highest-priority goal and add prices from at least two retailers."
+        )
+
+        return recommendations, action_items
+
+    recommendations.append(
+        f"{price_context['goals_with_prices']} active goal(s) have tracked retailer prices."
+    )
+
+    if price_context["potential_preferred_savings"] > 0:
+        recommendations.append(
+            f"You could save about {format_currency(price_context['potential_preferred_savings'])} by choosing the current lowest tracked stores instead of preferred retailers."
+        )
+
+    if price_context["goals_with_target_cushion"]:
+        best_cushion_goal = price_context["goals_with_target_cushion"][0]
+        cushion = best_cushion_goal["price_context"]["target_vs_lowest_difference"]
+
+        recommendations.append(
+            f"{best_cushion_goal['item_name']} has the biggest target cushion: its goal target is {format_currency(cushion)} above the lowest tracked price."
+        )
+
+    action_items.append(
+        "Review tracked prices before adding extra savings to a goal."
+    )
+
+    return recommendations, action_items
+
+
+def build_goal_advice(goal, message, budget_context, price_context):
     progress = goal.progress_percentage()
     remaining = goal.remaining_amount()
     months_left = goal.months_remaining()
     monthly_target = goal.calculated_monthly_target()
 
     budget_summary = budget_context["summary"]
+
     budget_recommendations, budget_action_items = build_budget_recommendations(
         budget_context
+    )
+
+    price_recommendations, price_action_items = build_price_recommendations_for_goal(
+        price_context
     )
 
     recommendations = []
@@ -178,11 +401,14 @@ def build_goal_advice(goal, message, budget_context):
             )
         elif monthly_target > budget_summary["available_before_goals"]:
             recommendations.append(
-                f"This goal's monthly target is higher than your available cash flow before goals, so the timeline is probably too aggressive."
+                "This goal's monthly target is higher than your available cash flow before goals, so the timeline is probably too aggressive."
             )
-        elif monthly_target > budget_summary["available_after_goals"] and budget_summary["available_after_goals"] > 0:
+        elif (
+            monthly_target > budget_summary["available_after_goals"]
+            and budget_summary["available_after_goals"] > 0
+        ):
             recommendations.append(
-                f"This goal's monthly target is larger than your remaining cushion after all goals, so speeding it up could strain your budget."
+                "This goal's monthly target is larger than your remaining cushion after all goals, so speeding it up could strain your budget."
             )
         else:
             recommendations.append(
@@ -190,6 +416,7 @@ def build_goal_advice(goal, message, budget_context):
             )
 
     recommendations.extend(budget_recommendations)
+    recommendations.extend(price_recommendations)
 
     if goal.retailer:
         recommendations.append(
@@ -211,6 +438,7 @@ def build_goal_advice(goal, message, budget_context):
     ]
 
     action_items.extend(budget_action_items)
+    action_items.extend(price_action_items)
 
     return {
         "summary": summary,
@@ -226,7 +454,8 @@ def build_goal_advice(goal, message, budget_context):
             "months_remaining": months_left,
             "monthly_target": monthly_target,
             "target_date": goal.target_date.isoformat() if goal.target_date else None,
-            "budget": budget_context
+            "budget": budget_context,
+            "prices": price_context
         },
         "recommendations": recommendations,
         "action_items": action_items,
@@ -237,13 +466,18 @@ def build_goal_advice(goal, message, budget_context):
     }
 
 
-def build_dashboard_advice(goals, message, budget_context):
+def build_dashboard_advice(goals, message, budget_context, price_context):
     active_goals = [goal for goal in goals if goal.status == "active"]
     completed_goals = [goal for goal in goals if goal.status == "completed"]
 
     budget_summary = budget_context["summary"]
+
     budget_recommendations, budget_action_items = build_budget_recommendations(
         budget_context
+    )
+
+    price_recommendations, price_action_items = build_dashboard_price_recommendations(
+        price_context
     )
 
     total_monthly_target = sum(
@@ -259,19 +493,22 @@ def build_dashboard_advice(goals, message, budget_context):
             "context_used": {
                 "type": "dashboard",
                 "total_goals": 0,
-                "budget": budget_context
+                "budget": budget_context,
+                "prices": price_context
             },
             "recommendations": [
                 "Create one realistic starter goal.",
                 "Choose a target date instead of guessing a monthly amount.",
                 "Add a retailer so future price tracking can be more useful.",
-                *budget_recommendations
+                *budget_recommendations,
+                *price_recommendations
             ],
             "action_items": [
                 "Create your first goal.",
                 "Add the target amount and target date.",
                 "Make your first deposit.",
-                *budget_action_items
+                *budget_action_items,
+                *price_action_items
             ],
             "advisor_note": "This is a planning recommendation, not financial advice."
         }
@@ -295,6 +532,7 @@ def build_dashboard_advice(goals, message, budget_context):
         )
 
     recommendations.extend(budget_recommendations)
+    recommendations.extend(price_recommendations)
 
     if highest_monthly_goal:
         recommendations.append(
@@ -317,6 +555,7 @@ def build_dashboard_advice(goals, message, budget_context):
     ]
 
     action_items.extend(budget_action_items)
+    action_items.extend(price_action_items)
 
     return {
         "summary": (
@@ -331,27 +570,33 @@ def build_dashboard_advice(goals, message, budget_context):
             "completed_goals": len(completed_goals),
             "total_monthly_target": round(total_monthly_target, 2),
             "total_remaining": round(total_remaining, 2),
-            "budget": budget_context
+            "budget": budget_context,
+            "prices": price_context
         },
         "recommendations": recommendations,
         "action_items": action_items,
         "advisor_note": (
-            "This is a planning recommendation based on your saved goals and budget context, "
+            "This is a planning recommendation based on your saved goals, budget context, and tracked prices, "
             "not financial advice."
         )
     }
 
 
-def build_general_advice(message, budget_context):
+def build_general_advice(message, budget_context, price_context):
     budget_summary = budget_context["summary"]
+
     budget_recommendations, budget_action_items = build_budget_recommendations(
         budget_context
+    )
+
+    price_recommendations, price_action_items = build_dashboard_price_recommendations(
+        price_context
     )
 
     recommendations = [
         "Ask about a specific goal for the best advice.",
         "Use the dashboard context if you want help prioritizing multiple goals.",
-        "Add target dates and retailers to make recommendations more useful."
+        "Add target dates, retailers, and tracked prices to make recommendations more useful."
     ]
 
     action_items = [
@@ -367,13 +612,17 @@ def build_general_advice(message, budget_context):
         )
 
     recommendations.extend(budget_recommendations)
+    recommendations.extend(price_recommendations)
+
     action_items.extend(budget_action_items)
+    action_items.extend(price_action_items)
 
     return {
-        "summary": "I can help you compare purchase goals, adjust timelines, and think through smarter buying decisions using your saved budget context.",
+        "summary": "I can help you compare purchase goals, adjust timelines, compare tracked store prices, and think through smarter buying decisions.",
         "context_used": {
             "type": "general",
-            "budget": budget_context
+            "budget": budget_context,
+            "prices": price_context
         },
         "recommendations": recommendations,
         "action_items": action_items,
@@ -401,6 +650,9 @@ def create_advisor_response():
 
     budget_context = build_budget_context(user_id)
 
+    all_user_goals = Goal.query.filter_by(user_id=user_id).all()
+    dashboard_price_context = build_dashboard_price_context(all_user_goals)
+
     goal = None
 
     if context_type == "goal":
@@ -412,14 +664,29 @@ def create_advisor_response():
         if not goal:
             return jsonify({"error": "Goal not found"}), 404
 
-        advisor_response = build_goal_advice(goal, message, budget_context)
+        goal_price_context = build_price_context_for_goal(goal)
+
+        advisor_response = build_goal_advice(
+            goal,
+            message,
+            budget_context,
+            goal_price_context
+        )
 
     elif context_type == "dashboard":
-        goals = Goal.query.filter_by(user_id=user_id).all()
-        advisor_response = build_dashboard_advice(goals, message, budget_context)
+        advisor_response = build_dashboard_advice(
+            all_user_goals,
+            message,
+            budget_context,
+            dashboard_price_context
+        )
 
     else:
-        advisor_response = build_general_advice(message, budget_context)
+        advisor_response = build_general_advice(
+            message,
+            budget_context,
+            dashboard_price_context
+        )
 
     saved_response = SmartAdvisorResponse(
         user_id=user_id,
