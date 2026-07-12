@@ -2208,3 +2208,108 @@ a:hover {
   }
 }
 
+.price-header-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+  max-width: 560px;
+}
+
+.secondary-action {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.secondary-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .price-header-actions {
+    justify-items: start;
+  }
+}
+
+.price-comparison-card .price-form {
+  max-width: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(15, 45, 35, 0.045);
+  border: 1px solid rgba(15, 45, 35, 0.08);
+  margin-bottom: 28px;
+}
+
+.price-comparison-card .price-field {
+  display: grid;
+  gap: 8px;
+}
+
+.price-comparison-card .price-field label,
+.price-comparison-card .price-checkbox {
+  margin: 0;
+  color: var(--green-950);
+  font-weight: 900;
+}
+
+.price-comparison-card .price-field input {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 45, 35, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--green-950);
+  font: inherit;
+  font-weight: 700;
+}
+
+.price-comparison-card .price-field input:focus {
+  outline: 2px solid rgba(52, 122, 85, 0.25);
+  border-color: rgba(52, 122, 85, 0.55);
+}
+
+.price-comparison-card .price-field-wide {
+  grid-column: 1 / -1;
+}
+
+.price-comparison-card .price-checkbox {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+}
+
+.price-comparison-card .price-checkbox input {
+  width: auto;
+}
+
+.price-comparison-card .price-form button[type="submit"] {
+  grid-column: 1 / -1;
+  border: none;
+  border-radius: 999px;
+  padding: 13px 18px;
+  background: var(--green-700);
+  color: white;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.price-comparison-card .price-form button[type="submit"]:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .price-comparison-card .price-form {
+    grid-template-columns: 1fr;
+  }
+}

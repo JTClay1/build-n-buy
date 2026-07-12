@@ -4,11 +4,19 @@ import {
   createGoalPrice,
   deleteGoalPrice,
   getGoalPrices,
+  refreshGoalPrices,
+  refreshRetailerPrice,
   updateGoalPrice,
 } from "../services/api";
 
 function formatCurrency(amount) {
   return Number(amount || 0).toFixed(2);
+}
+
+function formatDateTime(value) {
+  if (!value) return "Never";
+
+  return new Date(value).toLocaleString();
 }
 
 function PriceComparisonCard({ goalId }) {
@@ -28,6 +36,8 @@ function PriceComparisonCard({ goalId }) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  const [refreshingPriceId, setRefreshingPriceId] = useState(null);
 
   async function loadPrices() {
     if (!goalId) return;
@@ -84,8 +94,10 @@ function PriceComparisonCard({ goalId }) {
         retailer_name: formData.retailer_name.trim(),
         product_url: formData.product_url.trim(),
         price,
-        shipping_cost: formData.shipping_cost === "" ? 0 : Number(formData.shipping_cost),
-        tax_estimate: formData.tax_estimate === "" ? 0 : Number(formData.tax_estimate),
+        shipping_cost:
+          formData.shipping_cost === "" ? 0 : Number(formData.shipping_cost),
+        tax_estimate:
+          formData.tax_estimate === "" ? 0 : Number(formData.tax_estimate),
         is_preferred: formData.is_preferred,
         note: formData.note.trim(),
       });
@@ -183,6 +195,81 @@ function PriceComparisonCard({ goalId }) {
     }
   }
 
+  async function handleRefreshOne(priceItem) {
+    setError("");
+    setMessage("");
+    setRefreshingPriceId(priceItem.id);
+
+    try {
+      const data = await refreshRetailerPrice(priceItem.id);
+
+      setPrices((currentPrices) =>
+        currentPrices.map((currentPrice) =>
+          currentPrice.id === priceItem.id ? data.price : currentPrice
+        )
+      );
+
+      setSummary(data.summary);
+
+      const difference = data.result?.difference || 0;
+
+      if (difference < 0) {
+        setMessage(
+          `${priceItem.retailer_name} dropped by $${formatCurrency(
+            Math.abs(difference)
+          )}.`
+        );
+      } else if (difference > 0) {
+        setMessage(
+          `${priceItem.retailer_name} increased by $${formatCurrency(
+            difference
+          )}.`
+        );
+      } else {
+        setMessage(`${priceItem.retailer_name} price checked. No change.`);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRefreshingPriceId(null);
+    }
+  }
+
+  async function handleRefreshAll() {
+    setError("");
+    setMessage("");
+    setIsRefreshingAll(true);
+
+    try {
+      const data = await refreshGoalPrices(goalId);
+
+      setPrices(data.prices || []);
+      setSummary(data.summary || null);
+
+      setMessage(
+        `Live price check complete. ${data.updated_count} updated, ${data.failed_count} failed.`
+      );
+
+      if (data.failed_count > 0) {
+        const failedResult = data.results.find(
+          (result) => result.status === "failed"
+        );
+
+        if (failedResult?.error) {
+          setError(`Some prices could not refresh: ${failedResult.error}`);
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsRefreshingAll(false);
+    }
+  }
+
+  const hasRefreshablePrices = prices.some(
+    (priceItem) => priceItem.is_active && priceItem.product_url
+  );
+
   return (
     <section className="goal-detail-card price-comparison-card">
       <div className="section-header">
@@ -190,10 +277,22 @@ function PriceComparisonCard({ goalId }) {
           <p className="eyebrow">Price tracking</p>
           <h2>Store Price Comparison</h2>
         </div>
-        <p>
-          Compare manual retailer prices now. Later, scraper updates can feed
-          into this same section.
-        </p>
+
+        <div className="price-header-actions">
+          <p>
+            Track retailer prices manually or refresh live prices from saved
+            product URLs.
+          </p>
+
+          <button
+            type="button"
+            className="secondary-action"
+            disabled={!hasRefreshablePrices || isRefreshingAll}
+            onClick={handleRefreshAll}
+          >
+            {isRefreshingAll ? "Checking live prices..." : "Check Live Prices"}
+          </button>
+        </div>
       </div>
 
       {error && <p className="error-message">{error}</p>}
@@ -354,12 +453,15 @@ function PriceComparisonCard({ goalId }) {
                   {formatCurrency(priceItem.price)} base
                 </p>
 
-                {(priceItem.shipping_cost > 0 || priceItem.tax_estimate > 0) && (
+                {(priceItem.shipping_cost > 0 ||
+                  priceItem.tax_estimate > 0) && (
                   <span>
                     Shipping ${formatCurrency(priceItem.shipping_cost)} · Tax $
                     {formatCurrency(priceItem.tax_estimate)}
                   </span>
                 )}
+
+                <span>Last checked: {formatDateTime(priceItem.last_checked_at)}</span>
 
                 {priceItem.note && <span>{priceItem.note}</span>}
 
@@ -375,6 +477,18 @@ function PriceComparisonCard({ goalId }) {
               </div>
 
               <div className="price-item-actions">
+                {priceItem.product_url && priceItem.is_active && (
+                  <button
+                    type="button"
+                    disabled={refreshingPriceId === priceItem.id}
+                    onClick={() => handleRefreshOne(priceItem)}
+                  >
+                    {refreshingPriceId === priceItem.id
+                      ? "Refreshing..."
+                      : "Refresh Price"}
+                  </button>
+                )}
+
                 {!priceItem.is_preferred && (
                   <button
                     type="button"
