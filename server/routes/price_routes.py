@@ -159,7 +159,11 @@ def get_goal_prices(goal_id):
     prices = (
         RetailerPrice.query
         .filter_by(goal_id=goal.id)
-        .order_by(RetailerPrice.is_active.desc(), RetailerPrice.retailer_name)
+        .order_by(
+            RetailerPrice.is_preferred.desc(),
+            RetailerPrice.is_active.desc(),
+            RetailerPrice.retailer_name
+        )
         .all()
     )
 
@@ -411,7 +415,11 @@ def refresh_goal_prices(goal_id):
     prices = (
         RetailerPrice.query
         .filter_by(goal_id=goal.id)
-        .order_by(RetailerPrice.is_active.desc(), RetailerPrice.retailer_name)
+        .order_by(
+            RetailerPrice.is_preferred.desc(),
+            RetailerPrice.is_active.desc(),
+            RetailerPrice.retailer_name
+        )
         .all()
     )
 

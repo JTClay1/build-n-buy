@@ -5,7 +5,6 @@ import {
   deleteGoalPrice,
   getGoalPrices,
   refreshGoalPrices,
-  refreshRetailerPrice,
   updateGoalPrice,
 } from "../services/api";
 
@@ -19,10 +18,20 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString();
 }
 
-function PriceComparisonCard({ goalId }) {
-  const [prices, setPrices] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [formData, setFormData] = useState({
+function sortPrices(priceList) {
+  return [...priceList].sort((a, b) => {
+    if (a.is_preferred && !b.is_preferred) return -1;
+    if (!a.is_preferred && b.is_preferred) return 1;
+
+    if (a.is_active && !b.is_active) return -1;
+    if (!a.is_active && b.is_active) return 1;
+
+    return a.retailer_name.localeCompare(b.retailer_name);
+  });
+}
+
+function getEmptyFormData() {
+  return {
     retailer_name: "",
     product_url: "",
     price: "",
@@ -30,14 +39,22 @@ function PriceComparisonCard({ goalId }) {
     tax_estimate: "",
     is_preferred: false,
     note: "",
-  });
+  };
+}
+
+function PriceComparisonCard({ goalId }) {
+  const [prices, setPrices] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [formData, setFormData] = useState(getEmptyFormData());
+
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const [editingRetailerName, setEditingRetailerName] = useState("");
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
-  const [refreshingPriceId, setRefreshingPriceId] = useState(null);
 
   async function loadPrices() {
     if (!goalId) return;
@@ -47,7 +64,7 @@ function PriceComparisonCard({ goalId }) {
 
     try {
       const data = await getGoalPrices(goalId);
-      setPrices(data.prices || []);
+      setPrices(sortPrices(data.prices || []));
       setSummary(data.summary || null);
     } catch (err) {
       setError(err.message);
@@ -69,6 +86,34 @@ function PriceComparisonCard({ goalId }) {
     }));
   }
 
+  function resetForm() {
+    setFormData(getEmptyFormData());
+    setEditingPriceId(null);
+    setEditingRetailerName("");
+  }
+
+  function handleEdit(priceItem) {
+    setError("");
+    setMessage("");
+
+    setEditingPriceId(priceItem.id);
+    setEditingRetailerName(priceItem.retailer_name);
+
+    setFormData({
+      retailer_name: priceItem.retailer_name || "",
+      product_url: priceItem.product_url || "",
+      price: priceItem.price ?? "",
+      shipping_cost: priceItem.shipping_cost ?? "",
+      tax_estimate: priceItem.tax_estimate ?? "",
+      is_preferred: Boolean(priceItem.is_preferred),
+      note: priceItem.note || "",
+    });
+
+    document
+      .getElementById("price-form")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -87,20 +132,43 @@ function PriceComparisonCard({ goalId }) {
       return;
     }
 
+    const pricePayload = {
+      retailer_name: formData.retailer_name.trim(),
+      product_url: formData.product_url.trim(),
+      price,
+      shipping_cost:
+        formData.shipping_cost === "" ? 0 : Number(formData.shipping_cost),
+      tax_estimate:
+        formData.tax_estimate === "" ? 0 : Number(formData.tax_estimate),
+      is_preferred: formData.is_preferred,
+      note: formData.note.trim(),
+    };
+
     setIsSaving(true);
 
     try {
-      const data = await createGoalPrice(goalId, {
-        retailer_name: formData.retailer_name.trim(),
-        product_url: formData.product_url.trim(),
-        price,
-        shipping_cost:
-          formData.shipping_cost === "" ? 0 : Number(formData.shipping_cost),
-        tax_estimate:
-          formData.tax_estimate === "" ? 0 : Number(formData.tax_estimate),
-        is_preferred: formData.is_preferred,
-        note: formData.note.trim(),
-      });
+      if (editingPriceId) {
+        const data = await updateGoalPrice(editingPriceId, pricePayload);
+
+        setPrices((currentPrices) =>
+          sortPrices(
+            currentPrices.map((currentPrice) =>
+              currentPrice.id === editingPriceId
+                ? data.price
+                : data.price.is_preferred
+                  ? { ...currentPrice, is_preferred: false }
+                  : currentPrice
+            )
+          )
+        );
+
+        setSummary(data.summary);
+        setMessage(`${data.price.retailer_name} updated successfully.`);
+        resetForm();
+        return;
+      }
+
+      const data = await createGoalPrice(goalId, pricePayload);
 
       setPrices((currentPrices) => {
         const updatedPrices = data.price.is_preferred
@@ -110,21 +178,12 @@ function PriceComparisonCard({ goalId }) {
             }))
           : currentPrices;
 
-        return [data.price, ...updatedPrices];
+        return sortPrices([data.price, ...updatedPrices]);
       });
 
       setSummary(data.summary);
       setMessage("Retailer price added successfully.");
-
-      setFormData({
-        retailer_name: "",
-        product_url: "",
-        price: "",
-        shipping_cost: "",
-        tax_estimate: "",
-        is_preferred: false,
-        note: "",
-      });
+      resetForm();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -142,36 +201,17 @@ function PriceComparisonCard({ goalId }) {
       });
 
       setPrices((currentPrices) =>
-        currentPrices.map((currentPrice) =>
-          currentPrice.id === priceItem.id
-            ? data.price
-            : { ...currentPrice, is_preferred: false }
+        sortPrices(
+          currentPrices.map((currentPrice) =>
+            currentPrice.id === priceItem.id
+              ? data.price
+              : { ...currentPrice, is_preferred: false }
+          )
         )
       );
 
       setSummary(data.summary);
       setMessage(`${priceItem.retailer_name} set as preferred retailer.`);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleToggleActive(priceItem) {
-    setError("");
-    setMessage("");
-
-    try {
-      const data = await updateGoalPrice(priceItem.id, {
-        is_active: !priceItem.is_active,
-      });
-
-      setPrices((currentPrices) =>
-        currentPrices.map((currentPrice) =>
-          currentPrice.id === priceItem.id ? data.price : currentPrice
-        )
-      );
-
-      setSummary(data.summary);
     } catch (err) {
       setError(err.message);
     }
@@ -185,53 +225,17 @@ function PriceComparisonCard({ goalId }) {
       const data = await deleteGoalPrice(priceId);
 
       setPrices((currentPrices) =>
-        currentPrices.filter((priceItem) => priceItem.id !== priceId)
+        sortPrices(currentPrices.filter((priceItem) => priceItem.id !== priceId))
       );
+
+      if (editingPriceId === priceId) {
+        resetForm();
+      }
 
       setSummary(data.summary);
       setMessage("Retailer price deleted.");
     } catch (err) {
       setError(err.message);
-    }
-  }
-
-  async function handleRefreshOne(priceItem) {
-    setError("");
-    setMessage("");
-    setRefreshingPriceId(priceItem.id);
-
-    try {
-      const data = await refreshRetailerPrice(priceItem.id);
-
-      setPrices((currentPrices) =>
-        currentPrices.map((currentPrice) =>
-          currentPrice.id === priceItem.id ? data.price : currentPrice
-        )
-      );
-
-      setSummary(data.summary);
-
-      const difference = data.result?.difference || 0;
-
-      if (difference < 0) {
-        setMessage(
-          `${priceItem.retailer_name} dropped by $${formatCurrency(
-            Math.abs(difference)
-          )}.`
-        );
-      } else if (difference > 0) {
-        setMessage(
-          `${priceItem.retailer_name} increased by $${formatCurrency(
-            difference
-          )}.`
-        );
-      } else {
-        setMessage(`${priceItem.retailer_name} price checked. No change.`);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setRefreshingPriceId(null);
     }
   }
 
@@ -243,7 +247,7 @@ function PriceComparisonCard({ goalId }) {
     try {
       const data = await refreshGoalPrices(goalId);
 
-      setPrices(data.prices || []);
+      setPrices(sortPrices(data.prices || []));
       setSummary(data.summary || null);
 
       setMessage(
@@ -266,9 +270,7 @@ function PriceComparisonCard({ goalId }) {
     }
   }
 
-  const hasRefreshablePrices = prices.some(
-    (priceItem) => priceItem.is_active && priceItem.product_url
-  );
+  const hasRefreshablePrices = prices.some((priceItem) => priceItem.product_url);
 
   return (
     <section className="goal-detail-card price-comparison-card">
@@ -280,8 +282,8 @@ function PriceComparisonCard({ goalId }) {
 
         <div className="price-header-actions">
           <p>
-            Track retailer prices manually or refresh live prices from saved
-            product URLs.
+            Track retailer prices manually or refresh all saved product URLs at
+            once.
           </p>
 
           <button
@@ -330,7 +332,16 @@ function PriceComparisonCard({ goalId }) {
         </div>
       )}
 
-      <form className="price-form" onSubmit={handleSubmit}>
+      <form id="price-form" className="price-form" onSubmit={handleSubmit}>
+        {editingPriceId && (
+          <div className="price-edit-banner">
+            <span>Editing {editingRetailerName}</span>
+            <button type="button" onClick={resetForm}>
+              Cancel edit
+            </button>
+          </div>
+        )}
+
         <div className="price-field">
           <label htmlFor="retailer_name">Retailer</label>
           <input
@@ -422,7 +433,13 @@ function PriceComparisonCard({ goalId }) {
         </label>
 
         <button type="submit" disabled={isSaving}>
-          {isSaving ? "Adding price..." : "Add Retailer Price"}
+          {isSaving
+            ? editingPriceId
+              ? "Saving changes..."
+              : "Adding price..."
+            : editingPriceId
+              ? "Save Retailer Changes"
+              : "Add Retailer Price"}
         </button>
       </form>
 
@@ -431,10 +448,7 @@ function PriceComparisonCard({ goalId }) {
       ) : prices.length > 0 ? (
         <div className="price-list">
           {prices.map((priceItem) => (
-            <article
-              className={`price-item ${priceItem.is_active ? "" : "inactive"}`}
-              key={priceItem.id}
-            >
+            <article className="price-item" key={priceItem.id}>
               <div>
                 <div className="price-item-heading">
                   <h3>{priceItem.retailer_name}</h3>
@@ -477,17 +491,9 @@ function PriceComparisonCard({ goalId }) {
               </div>
 
               <div className="price-item-actions">
-                {priceItem.product_url && priceItem.is_active && (
-                  <button
-                    type="button"
-                    disabled={refreshingPriceId === priceItem.id}
-                    onClick={() => handleRefreshOne(priceItem)}
-                  >
-                    {refreshingPriceId === priceItem.id
-                      ? "Refreshing..."
-                      : "Refresh Price"}
-                  </button>
-                )}
+                <button type="button" onClick={() => handleEdit(priceItem)}>
+                  Edit
+                </button>
 
                 {!priceItem.is_preferred && (
                   <button
@@ -497,13 +503,6 @@ function PriceComparisonCard({ goalId }) {
                     Set Preferred
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => handleToggleActive(priceItem)}
-                >
-                  {priceItem.is_active ? "Pause" : "Activate"}
-                </button>
 
                 <button type="button" onClick={() => handleDelete(priceItem.id)}>
                   Delete
