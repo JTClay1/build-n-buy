@@ -12,6 +12,8 @@ flask-jwt-extended = "*"
 flask-cors = "*"
 python-dotenv = "*"
 openai = "*"
+beautifulsoup4 = "*"
+requests = "*"
 
 [dev-packages]
 pytest = "*"

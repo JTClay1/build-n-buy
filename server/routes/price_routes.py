@@ -4,7 +4,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
-from models import Goal, RetailerPrice
+from models import Goal, Notification, RetailerPrice
+from services.price_scraper import PriceScrapeError, scrape_price_from_url
 
 price_bp = Blueprint("prices", __name__)
 
@@ -19,7 +20,7 @@ def parse_money(value, field_name, default=None):
 
     try:
         value = float(value)
-    except ValueError:
+    except (TypeError, ValueError):
         raise ValueError(f"{field_name} must be a number")
 
     if value < 0:
@@ -63,7 +64,86 @@ def build_price_summary(goal):
         "lowest_price": lowest_price.to_dict(),
         "highest_price": highest_price.to_dict(),
         "average_total_price": round(average_total_price, 2),
-        "target_vs_lowest_difference": round(goal.target_amount - lowest_price.total_price(), 2)
+        "target_vs_lowest_difference": round(
+            goal.target_amount - lowest_price.total_price(),
+            2
+        )
+    }
+
+
+def create_price_notification(user_id, goal, retailer_price, old_price, new_price):
+    price_difference = round(new_price - old_price, 2)
+
+    if price_difference < 0:
+        title = f"Price drop: {goal.item_name}"
+        message = (
+            f"{retailer_price.retailer_name} dropped from "
+            f"${old_price:,.2f} to ${new_price:,.2f}."
+        )
+        notification_type = "price_drop"
+    elif price_difference > 0:
+        title = f"Price updated: {goal.item_name}"
+        message = (
+            f"{retailer_price.retailer_name} increased from "
+            f"${old_price:,.2f} to ${new_price:,.2f}."
+        )
+        notification_type = "price_update"
+    else:
+        title = f"Price checked: {goal.item_name}"
+        message = (
+            f"{retailer_price.retailer_name} is still listed at "
+            f"${new_price:,.2f}."
+        )
+        notification_type = "price_check"
+
+    notification = Notification(
+        user_id=user_id,
+        goal_id=goal.id,
+        title=title,
+        message=message,
+        notification_type=notification_type
+    )
+
+    db.session.add(notification)
+
+    return notification
+
+
+def refresh_retailer_price(retailer_price, user_id, render=None):
+    if not retailer_price.product_url:
+        raise PriceScrapeError("This retailer price does not have a product URL.")
+
+    old_price = float(retailer_price.price)
+
+    scrape_result = scrape_price_from_url(
+        retailer_price.product_url,
+        render=render,
+        previous_price=old_price
+    )
+
+    new_price = float(scrape_result["price"])
+
+    retailer_price.price = new_price
+    retailer_price.last_checked_at = datetime.utcnow()
+
+    notification = create_price_notification(
+        user_id=user_id,
+        goal=retailer_price.goal,
+        retailer_price=retailer_price,
+        old_price=old_price,
+        new_price=new_price
+    )
+
+    db.session.flush()
+
+    return {
+        "price_id": retailer_price.id,
+        "retailer_name": retailer_price.retailer_name,
+        "old_price": round(old_price, 2),
+        "new_price": round(new_price, 2),
+        "difference": round(new_price - old_price, 2),
+        "scrape": scrape_result,
+        "notification": notification.to_dict()
     }
 
 
@@ -226,6 +306,122 @@ def update_goal_price(price_id):
         "message": "Retailer price updated successfully",
         "price": retailer_price.to_dict(),
         "summary": build_price_summary(retailer_price.goal)
+    }), 200
+
+
+@price_bp.route("/prices/<int:price_id>/refresh", methods=["PATCH"])
+@jwt_required()
+def refresh_single_price(price_id):
+    user_id = int(get_jwt_identity())
+
+    retailer_price = (
+        RetailerPrice.query
+        .join(Goal)
+        .filter(
+            RetailerPrice.id == price_id,
+            Goal.user_id == user_id
+        )
+        .first()
+    )
+
+    if not retailer_price:
+        return jsonify({"error": "Retailer price not found"}), 404
+
+    data = request.get_json() or {}
+    render = data.get("render")
+
+    try:
+        refresh_result = refresh_retailer_price(
+            retailer_price,
+            user_id=user_id,
+            render=render
+        )
+    except PriceScrapeError as error:
+        return jsonify({"error": str(error)}), 422
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Live price refreshed successfully",
+        "result": refresh_result,
+        "price": retailer_price.to_dict(),
+        "summary": build_price_summary(retailer_price.goal)
+    }), 200
+
+
+@price_bp.route("/goals/<int:goal_id>/prices/refresh", methods=["POST"])
+@jwt_required()
+def refresh_goal_prices(goal_id):
+    user_id = int(get_jwt_identity())
+    goal = get_user_goal(goal_id, user_id)
+
+    if not goal:
+        return jsonify({"error": "Goal not found"}), 404
+
+    data = request.get_json() or {}
+    render = data.get("render")
+
+    prices_to_refresh = [
+        retailer_price
+        for retailer_price in goal.retailer_prices
+        if retailer_price.is_active and retailer_price.product_url
+    ]
+
+    if not prices_to_refresh:
+        return jsonify({
+            "error": "No active retailer prices with product URLs to refresh."
+        }), 400
+
+    results = []
+
+    for retailer_price in prices_to_refresh:
+        try:
+            refresh_result = refresh_retailer_price(
+                retailer_price,
+                user_id=user_id,
+                render=render
+            )
+
+            results.append({
+                "price_id": retailer_price.id,
+                "retailer_name": retailer_price.retailer_name,
+                "status": "updated",
+                "result": refresh_result
+            })
+        except PriceScrapeError as error:
+            results.append({
+                "price_id": retailer_price.id,
+                "retailer_name": retailer_price.retailer_name,
+                "status": "failed",
+                "error": str(error)
+            })
+
+    db.session.commit()
+
+    updated_count = len([
+        result for result in results
+        if result["status"] == "updated"
+    ])
+
+    failed_count = len([
+        result for result in results
+        if result["status"] == "failed"
+    ])
+
+    prices = (
+        RetailerPrice.query
+        .filter_by(goal_id=goal.id)
+        .order_by(RetailerPrice.is_active.desc(), RetailerPrice.retailer_name)
+        .all()
+    )
+
+    return jsonify({
+        "message": "Live price refresh completed",
+        "updated_count": updated_count,
+        "failed_count": failed_count,
+        "results": results,
+        "prices": [price.to_dict() for price in prices],
+        "summary": build_price_summary(goal)
     }), 200
 
 

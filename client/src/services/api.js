@@ -185,3 +185,17 @@ export async function deleteGoalPrice(priceId) {
     method: "DELETE",
   });
 }
+
+export async function refreshRetailerPrice(priceId, options = {}) {
+  return apiRequest(`/prices/${priceId}/refresh`, {
+    method: "PATCH",
+    body: JSON.stringify(options),
+  });
+}
+
+export async function refreshGoalPrices(goalId, options = {}) {
+  return apiRequest(`/goals/${goalId}/prices/refresh`, {
+    method: "POST",
+    body: JSON.stringify(options),
+  });
+}
