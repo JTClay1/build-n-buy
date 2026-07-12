@@ -2313,3 +2313,27 @@ a:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.price-edit-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(244, 201, 93, 0.18);
+  border: 1px solid rgba(15, 45, 35, 0.08);
+  color: var(--green-950);
+  font-weight: 900;
+}
+
+.price-edit-banner button {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+  font-weight: 950;
+  cursor: pointer;
+}
