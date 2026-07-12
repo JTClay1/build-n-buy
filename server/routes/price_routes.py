@@ -74,6 +74,9 @@ def build_price_summary(goal):
 def create_price_notification(user_id, goal, retailer_price, old_price, new_price):
     price_difference = round(new_price - old_price, 2)
 
+    if price_difference == 0:
+        return None
+
     if price_difference < 0:
         title = f"Price drop: {goal.item_name}"
         message = (
@@ -81,20 +84,13 @@ def create_price_notification(user_id, goal, retailer_price, old_price, new_pric
             f"${old_price:,.2f} to ${new_price:,.2f}."
         )
         notification_type = "price_drop"
-    elif price_difference > 0:
+    else:
         title = f"Price updated: {goal.item_name}"
         message = (
             f"{retailer_price.retailer_name} increased from "
             f"${old_price:,.2f} to ${new_price:,.2f}."
         )
         notification_type = "price_update"
-    else:
-        title = f"Price checked: {goal.item_name}"
-        message = (
-            f"{retailer_price.retailer_name} is still listed at "
-            f"${new_price:,.2f}."
-        )
-        notification_type = "price_check"
 
     notification = Notification(
         user_id=user_id,
@@ -107,7 +103,6 @@ def create_price_notification(user_id, goal, retailer_price, old_price, new_pric
     db.session.add(notification)
 
     return notification
-
 
 def refresh_retailer_price(retailer_price, user_id, render=None):
     if not retailer_price.product_url:
@@ -134,7 +129,8 @@ def refresh_retailer_price(retailer_price, user_id, render=None):
         new_price=new_price
     )
 
-    db.session.flush()
+    if notification:
+        db.session.flush()
 
     return {
         "price_id": retailer_price.id,
@@ -143,7 +139,7 @@ def refresh_retailer_price(retailer_price, user_id, render=None):
         "new_price": round(new_price, 2),
         "difference": round(new_price - old_price, 2),
         "scrape": scrape_result,
-        "notification": notification.to_dict()
+        "notification": notification.to_dict() if notification else None
     }
 
 
