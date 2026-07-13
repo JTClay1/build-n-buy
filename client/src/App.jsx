@@ -13,6 +13,7 @@ import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import SmartAdvisorWidget from "./components/SmartAdvisorWidget";
 import ProfilePage from "./pages/ProfilePage";
+import AdvisorPage from "./pages/AdvisorPage";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
 
       <Routes>
         <Route path="/" element={<LandingPage />} />
+
         <Route
           path="/login"
           element={
@@ -46,6 +48,15 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/advisor"
+          element={
+            <ProtectedRoute>
+              <AdvisorPage />
             </ProtectedRoute>
           }
         />
@@ -78,12 +89,12 @@ function App() {
         />
 
         <Route
-           path="/profile"
-           element={
-             <ProtectedRoute>
-               <ProfilePage />
-             </ProtectedRoute>
-           }
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
         />
       </Routes>
 

@@ -21,6 +21,7 @@ function NavBar() {
         {isAuthenticated ? (
           <>
             <Link to="/dashboard">Dashboard</Link>
+            <Link to="/advisor">Advisor</Link>
             <Link to="/goals/new">New Goal</Link>
             <Link to="/profile">Profile</Link>
             <span>{user?.username}</span>
