@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import {
   createAdvisorResponse,
   createDemoNotification,
-  getAdvisorHistory,
   getNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  saveAdvisorResponse,
 } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -67,14 +67,14 @@ function SmartAdvisorWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [message, setMessage] = useState("");
-  const [advisorHistory, setAdvisorHistory] = useState([]);
   const [currentResponse, setCurrentResponse] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [error, setError] = useState("");
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingResponse, setIsSavingResponse] = useState(false);
 
   async function loadNotifications() {
     if (!isAuthenticated) return;
@@ -97,26 +97,13 @@ function SmartAdvisorWidget() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    async function loadHistory() {
-      if (!isOpen || !isAuthenticated) return;
+    setCurrentResponse(null);
+    setMessage("");
+    setError("");
+    setSuccessMessage("");
+  }, [location.pathname]);
 
-      setIsLoadingHistory(true);
-      setError("");
-
-      try {
-        const data = await getAdvisorHistory(pageContext.goal_id);
-        setAdvisorHistory(data.advisor_responses || []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    }
-
-    loadHistory();
-  }, [isOpen, isAuthenticated, pageContext.goal_id]);
-
-  if (authLoading || !isAuthenticated) {
+  if (authLoading || !isAuthenticated || location.pathname === "/advisor") {
     return null;
   }
 
@@ -131,6 +118,7 @@ function SmartAdvisorWidget() {
     }
 
     setError("");
+    setSuccessMessage("");
     setIsSubmitting(true);
 
     try {
@@ -144,18 +132,40 @@ function SmartAdvisorWidget() {
       }
 
       const data = await createAdvisorResponse(payload);
-      const savedResponse = data.advisor_response;
-
-      setCurrentResponse(savedResponse);
-      setAdvisorHistory((currentHistory) => [
-        savedResponse,
-        ...currentHistory,
-      ]);
+      setCurrentResponse(data.advisor_response);
       setMessage("");
     } catch (err) {
       setError(err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleSaveResponse() {
+    if (!currentResponse || currentResponse.is_saved) return;
+
+    setError("");
+    setSuccessMessage("");
+    setIsSavingResponse(true);
+
+    try {
+      const data = await saveAdvisorResponse({
+        user_message: currentResponse.user_message,
+        context_type: currentResponse.context_type,
+        goal_id: currentResponse.goal_id,
+        response: currentResponse.response,
+      });
+
+      setCurrentResponse({
+        ...data.advisor_response,
+        is_saved: true,
+      });
+
+      setSuccessMessage("Saved to Advisor page.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSavingResponse(false);
     }
   }
 
@@ -183,9 +193,7 @@ function SmartAdvisorWidget() {
 
       setNotifications((currentNotifications) =>
         currentNotifications.map((notification) =>
-          notification.id === notificationId
-            ? data.notification
-            : notification
+          notification.id === notificationId ? data.notification : notification
         )
       );
 
@@ -214,8 +222,7 @@ function SmartAdvisorWidget() {
     }
   }
 
-  const responseToShow = currentResponse || advisorHistory[0] || null;
-  const response = responseToShow?.response;
+  const response = currentResponse?.response;
 
   return (
     <div className="advisor-widget">
@@ -289,18 +296,14 @@ function SmartAdvisorWidget() {
                         <h4>{notification.title}</h4>
                         <p>{notification.message}</p>
                         <span>
-                          {new Date(
-                            notification.created_at
-                          ).toLocaleDateString()}
+                          {new Date(notification.created_at).toLocaleDateString()}
                         </span>
                       </div>
 
                       {!notification.is_read && (
                         <button
                           type="button"
-                          onClick={() =>
-                            handleReadNotification(notification.id)
-                          }
+                          onClick={() => handleReadNotification(notification.id)}
                         >
                           Mark read
                         </button>
@@ -346,12 +349,25 @@ function SmartAdvisorWidget() {
           </form>
 
           {error && <p className="error-message">{error}</p>}
+          {successMessage && <p className="success-message">{successMessage}</p>}
 
-          {isLoadingHistory ? (
-            <p className="advisor-muted">Loading advisor history...</p>
-          ) : response ? (
+          {response ? (
             <article className="advisor-response-card">
-              <h3>{response.summary}</h3>
+              <div className="advisor-response-topline">
+                <h3>{response.summary}</h3>
+
+                <button
+                  type="button"
+                  onClick={handleSaveResponse}
+                  disabled={isSavingResponse || currentResponse.is_saved}
+                >
+                  {currentResponse.is_saved
+                    ? "Saved"
+                    : isSavingResponse
+                      ? "Saving..."
+                      : "Save Response"}
+                </button>
+              </div>
 
               {response.recommendations?.length > 0 && (
                 <div>
@@ -381,11 +397,13 @@ function SmartAdvisorWidget() {
             </article>
           ) : (
             <div className="advisor-empty-state">
-              <h3>No advisor responses yet</h3>
+              <h3>No active advisor response</h3>
               <p>
-                Ask a question from this page and the advisor will use the
-                current context when possible.
+                Ask a quick question here, or open the full Advisor page for
+                saved responses and a bigger planning view.
               </p>
+
+              <Link to="/advisor">Open Advisor page</Link>
             </div>
           )}
         </section>

@@ -110,6 +110,17 @@ export async function createAdvisorResponse(advisorData) {
   });
 }
 
+export async function saveAdvisorResponse(advisorData) {
+  return apiRequest("/advisor/save", {
+    method: "POST",
+    body: JSON.stringify(advisorData),
+  });
+}
+
+export async function getAdvisorSnapshot() {
+  return apiRequest("/advisor/snapshot");
+}
+
 export async function getAdvisorHistory(goalId = null) {
   const queryString = goalId ? `?goal_id=${goalId}` : "";
 

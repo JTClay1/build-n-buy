@@ -913,22 +913,105 @@ def create_advisor_response():
         ai_response
     )
 
+    return jsonify({
+        "message": "Advisor response generated successfully",
+        "advisor_response": {
+            "id": None,
+            "user_id": user_id,
+            "goal_id": goal.id if goal else None,
+            "context_type": context_type,
+            "user_message": message,
+            "response": advisor_response,
+            "created_at": None,
+            "is_saved": False
+        }
+    }), 200
+
+@advisor_bp.route("/advisor/save", methods=["POST"])
+@jwt_required()
+def save_advisor_response():
+    user_id = int(get_jwt_identity())
+    data = request.get_json() or {}
+
+    user_message = data.get("user_message", "").strip()
+    context_type = data.get("context_type", "general")
+    goal_id = data.get("goal_id")
+    response_json = data.get("response")
+
+    allowed_contexts = ["general", "goal", "dashboard"]
+
+    if context_type not in allowed_contexts:
+        return jsonify({"error": "Invalid advisor context type"}), 400
+
+    if not user_message:
+        return jsonify({"error": "Original advisor question is required"}), 400
+
+    if not isinstance(response_json, dict):
+        return jsonify({"error": "Advisor response is required"}), 400
+
+    goal = None
+
+    if goal_id:
+        goal = Goal.query.filter_by(id=goal_id, user_id=user_id).first()
+
+        if not goal:
+            return jsonify({"error": "Goal not found"}), 404
+
     saved_response = SmartAdvisorResponse(
         user_id=user_id,
         goal_id=goal.id if goal else None,
         context_type=context_type,
-        user_message=message,
-        response_json=json.dumps(advisor_response)
+        user_message=user_message,
+        response_json=json.dumps(response_json)
     )
 
     db.session.add(saved_response)
     db.session.commit()
 
     return jsonify({
-        "message": "Advisor response created successfully",
+        "message": "Advisor response saved successfully",
         "advisor_response": saved_response.to_dict()
     }), 201
 
+@advisor_bp.route("/advisor/snapshot", methods=["GET"])
+@jwt_required()
+def get_advisor_snapshot():
+    user_id = int(get_jwt_identity())
+
+    goals = Goal.query.filter_by(user_id=user_id).all()
+    active_goals = [goal for goal in goals if goal.status == "active"]
+    completed_goals = [goal for goal in goals if goal.status == "completed"]
+
+    budget_context = build_budget_context(user_id)
+    budget_summary = budget_context["summary"]
+
+    total_saved = sum(goal.saved_amount for goal in active_goals)
+    total_target = sum(goal.target_amount for goal in active_goals)
+    total_remaining = sum(goal.remaining_amount() for goal in active_goals)
+    total_monthly_targets = sum(
+        goal.calculated_monthly_target() for goal in active_goals
+    )
+
+    return jsonify({
+        "snapshot": {
+            "goals": {
+                "total_goals": len(goals),
+                "active_goals": len(active_goals),
+                "completed_goals": len(completed_goals),
+                "total_saved": round(total_saved, 2),
+                "total_target": round(total_target, 2),
+                "total_remaining": round(total_remaining, 2),
+                "total_monthly_targets": round(total_monthly_targets, 2)
+            },
+            "budget": {
+                "monthly_income": budget_summary["monthly_income"],
+                "monthly_expenses": budget_summary["monthly_expenses"],
+                "available_before_goals": budget_summary["available_before_goals"],
+                "total_goal_monthly_targets": budget_summary["total_goal_monthly_targets"],
+                "available_after_goals": budget_summary["available_after_goals"]
+            }
+        }
+    }), 200
 
 @advisor_bp.route("/advisor/history", methods=["GET"])
 @jwt_required()
