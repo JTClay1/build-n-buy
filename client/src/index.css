@@ -2337,3 +2337,71 @@ a:hover {
   font-weight: 950;
   cursor: pointer;
 }
+
+.price-comparison-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.price-check-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(247, 250, 246, 0.76);
+  backdrop-filter: blur(5px);
+}
+
+.price-check-modal {
+  width: min(420px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 26px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(15, 45, 35, 0.12);
+  box-shadow: 0 24px 60px rgba(15, 45, 35, 0.16);
+  text-align: center;
+  color: var(--green-950);
+}
+
+.price-check-modal h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.price-check-modal p {
+  max-width: 320px;
+  margin: 0;
+  color: var(--green-700);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.price-spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 5px solid rgba(52, 122, 85, 0.18);
+  border-top-color: var(--green-700);
+  animation: price-spin 0.8s linear infinite;
+}
+
+.price-checking-active {
+  min-height: 420px;
+}
+
+.price-item-actions button:disabled,
+.price-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes price-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -273,7 +273,22 @@ function PriceComparisonCard({ goalId }) {
   const hasRefreshablePrices = prices.some((priceItem) => priceItem.product_url);
 
   return (
-    <section className="goal-detail-card price-comparison-card">
+    <section
+      className={`goal-detail-card price-comparison-card ${
+        isRefreshingAll ? "price-checking-active" : ""
+      }`}
+    >
+    {isRefreshingAll && (
+      <div className="price-check-overlay" aria-live="polite">
+        <div className="price-check-modal">
+          <div className="price-spinner" />
+          <h3>Checking live prices...</h3>
+          <p>
+            We’re refreshing saved retailer URLs and updating your price summary.
+          </p>
+        </div>
+      </div>
+    )}
       <div className="section-header">
         <div>
           <p className="eyebrow">Price tracking</p>
@@ -432,7 +447,7 @@ function PriceComparisonCard({ goalId }) {
           Preferred retailer
         </label>
 
-        <button type="submit" disabled={isSaving}>
+        <button type="submit" disabled={isSaving || isRefreshingAll}>
           {isSaving
             ? editingPriceId
               ? "Saving changes..."
@@ -491,20 +506,29 @@ function PriceComparisonCard({ goalId }) {
               </div>
 
               <div className="price-item-actions">
-                <button type="button" onClick={() => handleEdit(priceItem)}>
+                <button
+                  type="button"
+                  disabled={isRefreshingAll}
+                  onClick={() => handleEdit(priceItem)}
+                >
                   Edit
                 </button>
 
                 {!priceItem.is_preferred && (
                   <button
                     type="button"
+                    disabled={isRefreshingAll}
                     onClick={() => handleSetPreferred(priceItem)}
                   >
                     Set Preferred
                   </button>
                 )}
 
-                <button type="button" onClick={() => handleDelete(priceItem.id)}>
+                <button
+                  type="button"
+                  disabled={isRefreshingAll}
+                  onClick={() => handleDelete(priceItem.id)}
+                >
                   Delete
                 </button>
               </div>
