@@ -50,13 +50,13 @@ function LandingPage() {
             </p>
           </Link>
 
-          <div className="home-action-card muted-card">
+          <Link className="home-action-card" to="/advisor">
             <h2>Smart Buy Advisor</h2>
             <p>
-              Coming soon: compare cheaper alternatives, premium upgrades,
-              timeline changes, and ways to free up money.
+              Open your full Advisor workspace to review goals, budget context,
+              saved responses, and smarter buying recommendations.
             </p>
-          </div>
+          </Link>
         </section>
 
         <section className="home-info-card">
@@ -110,8 +110,8 @@ function LandingPage() {
         <div className="home-action-card">
           <h2>Buy with context</h2>
           <p>
-            Soon, Smart Buy Advisor will help compare alternatives and decide
-            whether the purchase fits your plan.
+            Use Smart Buy Advisor to compare goals, review tradeoffs, and make better
+            buying decisions before you spend.
           </p>
         </div>
       </section>
