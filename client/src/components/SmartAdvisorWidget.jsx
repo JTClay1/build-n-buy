@@ -92,26 +92,11 @@ function SmartAdvisorWidget() {
     }
   }
 
-  useEffect(() => {
-    loadNotifications();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    setCurrentResponse(null);
-    setMessage("");
-    setError("");
-    setSuccessMessage("");
-  }, [location.pathname]);
-
-  if (authLoading || !isAuthenticated || location.pathname === "/advisor") {
-    return null;
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    const trimmedMessage = message.trim();
-
+  async function submitAdvisorRequest(
+    trimmedMessage,
+    requestContext = pageContext,
+    advisorMode = "standard"
+  ) {
     if (!trimmedMessage) {
       setError("Ask the advisor a question first.");
       return;
@@ -124,11 +109,12 @@ function SmartAdvisorWidget() {
     try {
       const payload = {
         message: trimmedMessage,
-        context_type: pageContext.context_type,
+        context_type: requestContext.context_type,
+        advisor_mode: advisorMode,
       };
 
-      if (pageContext.goal_id) {
-        payload.goal_id = pageContext.goal_id;
+      if (requestContext.goal_id) {
+        payload.goal_id = requestContext.goal_id;
       }
 
       const data = await createAdvisorResponse(payload);
@@ -139,6 +125,67 @@ function SmartAdvisorWidget() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  useEffect(() => {
+    loadNotifications();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    setCurrentResponse(null);
+    setMessage("");
+    setError("");
+    setSuccessMessage("");
+  }, [location.pathname]);
+
+  useEffect(() => {
+    function handleAdvisorRequest(event) {
+      if (!isAuthenticated || location.pathname === "/advisor") return;
+
+      const detail = event.detail || {};
+      const requestMessage = String(detail.message || "").trim();
+
+      if (!requestMessage) return;
+
+      const requestContext = {
+        context_type: detail.context_type || pageContext.context_type,
+        goal_id: detail.goal_id ?? pageContext.goal_id,
+        label: pageContext.label,
+        placeholder: pageContext.placeholder,
+        quickPrompts: pageContext.quickPrompts,
+      };
+
+      setIsOpen(true);
+      setShowNotifications(false);
+      setMessage(requestMessage);
+      setError("");
+      setSuccessMessage("");
+
+      if (detail.autoSubmit) {
+        submitAdvisorRequest(
+          requestMessage,
+          requestContext,
+          detail.advisor_mode || "standard"
+        );
+      }
+    }
+
+    window.addEventListener("buildnbuy:advisor-request", handleAdvisorRequest);
+
+    return () => {
+      window.removeEventListener(
+        "buildnbuy:advisor-request",
+        handleAdvisorRequest
+      );
+    };
+  }, [isAuthenticated, location.pathname, pageContext]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    const trimmedMessage = message.trim();
+
+    await submitAdvisorRequest(trimmedMessage);
   }
 
   async function handleSaveResponse() {
@@ -222,6 +269,10 @@ function SmartAdvisorWidget() {
     }
   }
 
+  if (authLoading || !isAuthenticated || location.pathname === "/advisor") {
+    return null;
+  }
+
   const response = currentResponse?.response;
 
   return (
@@ -296,14 +347,18 @@ function SmartAdvisorWidget() {
                         <h4>{notification.title}</h4>
                         <p>{notification.message}</p>
                         <span>
-                          {new Date(notification.created_at).toLocaleDateString()}
+                          {new Date(
+                            notification.created_at
+                          ).toLocaleDateString()}
                         </span>
                       </div>
 
                       {!notification.is_read && (
                         <button
                           type="button"
-                          onClick={() => handleReadNotification(notification.id)}
+                          onClick={() =>
+                            handleReadNotification(notification.id)
+                          }
                         >
                           Mark read
                         </button>
@@ -364,8 +419,8 @@ function SmartAdvisorWidget() {
                   {currentResponse.is_saved
                     ? "Saved"
                     : isSavingResponse
-                      ? "Saving..."
-                      : "Save Response"}
+                    ? "Saving..."
+                    : "Save Response"}
                 </button>
               </div>
 

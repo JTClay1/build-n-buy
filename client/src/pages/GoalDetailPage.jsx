@@ -276,6 +276,32 @@ function GoalDetailPage() {
     }
   }
 
+  function handleAdvisorAlternativeRequest(alternativeType) {
+  if (!goal) return;
+
+  const isPremium = alternativeType === "premium";
+
+  const advisorMode = isPremium
+    ? "premium_alternatives"
+    : "budget_alternatives";
+
+  const message = isPremium
+    ? `Find premium alternatives for my goal "${goal.item_name}". Strictly return product alternative ideas only. Focus on upgraded models, premium versions, better long-term value, stronger warranties, better bundles, and higher-quality competing products.`
+    : `Find budget alternatives for my goal "${goal.item_name}". Strictly return product alternative ideas only. Focus on cheaper alternatives, previous-generation models, refurbished or open-box options, cheaper bundles, and similar lower-cost products.`;
+
+  window.dispatchEvent(
+    new CustomEvent("buildnbuy:advisor-request", {
+      detail: {
+        context_type: "goal",
+        goal_id: Number(goalId),
+        advisor_mode: advisorMode,
+        message,
+        autoSubmit: true,
+      },
+    })
+  );
+}
+
   if (isLoading) {
     return (
       <main className="page">
@@ -322,6 +348,22 @@ function GoalDetailPage() {
         <Link className="primary-link-button" to={`/goals/${goal.id}/edit`}>
           Edit Goal
         </Link>
+
+        <div className="goal-advisor-actions">
+          <button
+            type="button"
+            onClick={() => handleAdvisorAlternativeRequest("budget")}
+          >
+            Find Budget Alternatives
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleAdvisorAlternativeRequest("premium")}
+          >
+            Find Premium Alternatives
+          </button>
+        </div>
       </section>
 
       {error && <p className="error-message">{error}</p>}
