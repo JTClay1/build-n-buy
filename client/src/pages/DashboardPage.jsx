@@ -45,15 +45,13 @@ function DashboardPage() {
 
   return (
     <main className="page dashboard-page">
-      <section className="dashboard-hero">
-        <div>
-          <p className="eyebrow">Your savings command center</p>
-          <h1>Dashboard</h1>
-          <p>
-            Track your purchase goals, monthly savings targets, and progress
-            toward smarter buys.
-          </p>
-        </div>
+      <section className="page-intro-text">
+         <p className="eyebrow">Your savings command center</p>
+         <h1>Dashboard</h1>
+         <p>
+          Track your purchase goals, monthly savings targets, and progress toward
+          smarter buys.
+         </p>
       </section>
 
       <section className="summary-grid">

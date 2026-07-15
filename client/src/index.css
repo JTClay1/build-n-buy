@@ -1787,14 +1787,13 @@ a:hover {
     grid-template-columns: 1fr;
   }
 
-.budget-section .budget-item-form {
-  grid-template-columns: 1fr;
-}
+  .budget-section .budget-item-form {
+    grid-template-columns: 1fr;
+  }
 
-.budget-field-wide {
-  grid-column: auto;
-}
-
+  .budget-field-wide {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 700px) {
@@ -2752,4 +2751,203 @@ a:hover {
 .goal-advisor-actions button:hover {
   transform: translateY(-1px);
   background: rgba(52, 122, 85, 0.18);
+}
+
+/* Dark mode */
+
+/* Dark mode final reset */
+
+/* Dark mode: simple shell only */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] body {
+  background:
+    linear-gradient(rgba(118, 210, 154, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(118, 210, 154, 0.07) 1px, transparent 1px),
+    radial-gradient(circle at bottom right, rgba(245, 238, 210, 0.14), transparent 28%),
+    #06140d;
+  background-size: 32px 32px, 32px 32px, auto, auto;
+}
+
+/* Navbar */
+
+[data-theme="dark"] .navbar {
+  background: #0d2a1b;
+  border-bottom: 1px solid rgba(180, 235, 200, 0.16);
+}
+
+[data-theme="dark"] .navbar a,
+[data-theme="dark"] .navbar span,
+[data-theme="dark"] .navbar button {
+  color: #f4fff7;
+}
+
+.theme-toggle-button {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .theme-toggle-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4fff7;
+}
+
+/* Page-level text on dark background */
+
+[data-theme="dark"] .dashboard-page > .eyebrow,
+[data-theme="dark"] .dashboard-page > h1,
+[data-theme="dark"] .dashboard-page > p,
+[data-theme="dark"] .profile-page > .eyebrow,
+[data-theme="dark"] .profile-page > h1,
+[data-theme="dark"] .profile-page > p,
+[data-theme="dark"] .home-hero .eyebrow,
+[data-theme="dark"] .home-hero h1,
+[data-theme="dark"] .home-hero p,
+[data-theme="dark"] .advisor-page > .eyebrow,
+[data-theme="dark"] .advisor-page > h1,
+[data-theme="dark"] .advisor-page > p,
+[data-theme="dark"] .goal-detail-page > .back-link,
+[data-theme="dark"] .dashboard-section > .section-header h2,
+[data-theme="dark"] .dashboard-section > .section-header p,
+[data-theme="dark"] .dashboard-section > .section-header span {
+  color: #f4fff7;
+}
+
+[data-theme="dark"] .dashboard-page > p,
+[data-theme="dark"] .profile-page > p,
+[data-theme="dark"] .home-hero p,
+[data-theme="dark"] .advisor-page > p,
+[data-theme="dark"] .dashboard-section > .section-header p,
+[data-theme="dark"] .dashboard-section > .section-header span {
+  color: #d7eadf;
+}
+
+/* Keep cards in readable light mode */
+
+[data-theme="dark"] .home-action-card,
+[data-theme="dark"] .home-info-card,
+[data-theme="dark"] .dashboard-stat,
+[data-theme="dark"] .goal-card,
+[data-theme="dark"] .goal-detail-hero,
+[data-theme="dark"] .goal-detail-card,
+[data-theme="dark"] .goal-progress-card,
+[data-theme="dark"] .contribution-card,
+[data-theme="dark"] .goal-timeline-card,
+[data-theme="dark"] .price-comparison-card,
+[data-theme="dark"] .price-item,
+[data-theme="dark"] .advisor-page-hero,
+[data-theme="dark"] .advisor-snapshot-grid article,
+[data-theme="dark"] .advisor-page-card,
+[data-theme="dark"] .advisor-response-card,
+[data-theme="dark"] .advisor-empty-state,
+[data-theme="dark"] .empty-state,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .profile-section,
+[data-theme="dark"] .auth-card,
+[data-theme="dark"] .contribution-item {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 45, 35, 0.1);
+  color: var(--green-950);
+}
+
+/* Force card text readable without touching the rest of the page */
+
+[data-theme="dark"] .home-action-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .home-info-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .dashboard-stat :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .goal-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .goal-detail-hero :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .goal-detail-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .goal-progress-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .contribution-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .goal-timeline-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .price-comparison-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .price-item :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .advisor-page-hero :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .advisor-snapshot-grid article :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .advisor-page-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .advisor-response-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .advisor-empty-state :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .empty-state :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .profile-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .profile-section :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .auth-card :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow),
+[data-theme="dark"] .contribution-item :is(h1, h2, h3, h4, p, span, strong, label, li, .eyebrow) {
+  color: var(--green-950);
+}
+
+/* Forms stay readable */
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 45, 35, 0.2);
+  color: var(--green-950);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: rgba(15, 45, 35, 0.52);
+}
+
+/* Buttons keep existing green brand feel */
+
+[data-theme="dark"] .primary-link-button,
+[data-theme="dark"] .goal-form button,
+[data-theme="dark"] .price-form button[type="submit"],
+[data-theme="dark"] .advisor-form button,
+[data-theme="dark"] .advisor-response-topline button,
+[data-theme="dark"] .auth-card button,
+[data-theme="dark"] .profile-card button,
+[data-theme="dark"] .card-action-link {
+  background: var(--green-700);
+  color: white;
+}
+
+[data-theme="dark"] .secondary-action,
+[data-theme="dark"] .goal-advisor-actions button,
+[data-theme="dark"] .price-item-actions button,
+[data-theme="dark"] .advisor-quick-prompts button,
+[data-theme="dark"] .advisor-demo-alert-button {
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+}
+
+/* Logo visibility on dark home hero */
+
+[data-theme="dark"] .home-hero .hero-logo-wrap,
+[data-theme="dark"] .home-hero .hero-logo-wrap *,
+[data-theme="dark"] .home-hero .hero-logo-feature,
+[data-theme="dark"] .home-hero .hero-logo-feature * {
+  color: #f4fff7;
+  fill: #f4fff7;
+  stroke: #f4fff7;
+}
+/* Explicit dark-mode page intro fix */
+
+[data-theme="dark"] .page-intro-text,
+[data-theme="dark"] .page-intro-text * {
+  color: #f4fff7 !important;
+}
+
+[data-theme="dark"] .page-intro-text p:not(.eyebrow) {
+  color: #d7eadf !important;
+}
+
+[data-theme="dark"] .page-intro-text .eyebrow {
+  color: #f4fff7 !important;
+}
+
+[data-theme="dark"] .page-intro-text h1 {
+  color: #f4fff7 !important;
 }
