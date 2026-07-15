@@ -2,6 +2,9 @@ import { Route, Routes } from "react-router-dom";
 
 import NavBar from "./components/NavBar";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SessionTimeout from "./components/SessionTimeout";
+import SmartAdvisorWidget from "./components/SmartAdvisorWidget";
+import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -9,9 +12,7 @@ import DashboardPage from "./pages/DashboardPage";
 import NewGoalPage from "./pages/NewGoalPage";
 import GoalDetailPage from "./pages/GoalDetailPage";
 import EditGoalPage from "./pages/EditGoalPage";
-import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
-import SmartAdvisorWidget from "./components/SmartAdvisorWidget";
 import ProfilePage from "./pages/ProfilePage";
 import AdvisorPage from "./pages/AdvisorPage";
 
@@ -19,6 +20,7 @@ function App() {
   return (
     <>
       <NavBar />
+      <SessionTimeout />
 
       <Routes>
         <Route path="/" element={<LandingPage />} />
