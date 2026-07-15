@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
+import ThemeToggle from "./ThemeToggle";
 
 function NavBar() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -24,11 +25,13 @@ function NavBar() {
             <Link to="/advisor">Advisor</Link>
             <Link to="/goals/new">New Goal</Link>
             <Link to="/profile">Profile</Link>
+            <ThemeToggle />
             <span>{user?.username}</span>
             <button onClick={handleLogout}>Logout</button>
           </>
         ) : (
           <>
+            <ThemeToggle />
             <Link to="/login">Login</Link>
             <Link to="/signup">Sign Up</Link>
           </>

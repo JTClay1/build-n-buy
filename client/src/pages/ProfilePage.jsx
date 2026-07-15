@@ -285,13 +285,13 @@ function ProfilePage() {
 
   return (
     <main className="page profile-hub-page">
-      <section className="profile-page-header">
+      <section className="page-intro-text">
         <p className="eyebrow">Account settings</p>
         <h1>Profile & Budget Context</h1>
         <p>
-          Manage your account, monthly cash flow, and password from one place.
-          This budget context will eventually help Smart Advisor give better
-          purchase advice.
+          Manage your account, monthly cash flow, and password from one place. This
+          budget context will eventually help Smart Advisor give better purchase
+          advice.
         </p>
       </section>
 
