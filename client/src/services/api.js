@@ -216,3 +216,10 @@ export async function refreshGoalPrices(goalId, options = {}) {
     body: JSON.stringify(options),
   });
 }
+
+export async function runDailyPriceCheck(options = {}) {
+  return apiRequest("/prices/daily-check", {
+    method: "POST",
+    body: JSON.stringify(options),
+  });
+}
