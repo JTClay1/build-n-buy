@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import {
   createAdvisorResponse,
+  deleteAdvisorResponse,
   getAdvisorHistory,
   getAdvisorSnapshot,
   getGoals,
@@ -13,17 +14,28 @@ function formatCurrency(amount) {
   return Number(amount || 0).toFixed(2);
 }
 
-function AdvisorResponseCard({ advisorResponse }) {
+function AdvisorResponseCard({ advisorResponse, onDelete, isDeleting }) {
   const response = advisorResponse.response;
 
   return (
     <article className="advisor-response-card saved-advisor-card">
       <div className="advisor-response-meta">
-        <span>{advisorResponse.context_type}</span>
-        {advisorResponse.created_at && (
-          <span>{new Date(advisorResponse.created_at).toLocaleString()}</span>
-        )}
-      </div>
+        <div>
+            <span>{advisorResponse.context_type}</span>
+            {advisorResponse.created_at && (
+                <span>{new Date(advisorResponse.created_at).toLocaleString()}</span>
+            )}
+        </div>
+
+        <button
+            type="button"
+            className="advisor-delete-response-button"
+            disabled={isDeleting}
+            onClick={() => onDelete(advisorResponse.id)}
+        >
+            {isDeleting ? "Deleting..." : "Delete"}
+        </button>
+        </div>
 
       <p className="advisor-question">“{advisorResponse.user_message}”</p>
 
@@ -71,6 +83,7 @@ function AdvisorPage() {
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingResponse, setIsSavingResponse] = useState(false);
+  const [deletingResponseId, setDeletingResponseId] = useState(null);
 
   const activeGoals = useMemo(
     () => goals.filter((goal) => goal.status === "active"),
@@ -188,6 +201,41 @@ function AdvisorPage() {
       setIsSavingResponse(false);
     }
   }
+
+async function handleDeleteSavedResponse(responseId) {
+  const confirmed = window.confirm(
+    "Delete this saved advisor response? This cannot be undone."
+  );
+
+  if (!confirmed) return;
+
+  setError("");
+  setSuccessMessage("");
+  setDeletingResponseId(responseId);
+
+  try {
+    await deleteAdvisorResponse(responseId);
+
+    setSavedResponses((currentResponses) =>
+      currentResponses.filter((advisorResponse) => advisorResponse.id !== responseId)
+    );
+
+    if (currentResponse?.id === responseId) {
+      setCurrentResponse({
+        ...currentResponse,
+        id: null,
+        is_saved: false,
+        created_at: null,
+      });
+    }
+
+    setSuccessMessage("Advisor response deleted.");
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setDeletingResponseId(null);
+  }
+}  
 
   function usePrompt(prompt, promptContext = contextType) {
     setMessage(prompt);
@@ -389,7 +437,7 @@ function AdvisorPage() {
           )}
         </article>
 
-        <aside className="goal-detail-card advisor-page-card">
+        <section className="goal-detail-card advisor-page-card advisor-saved-section">
           <div className="section-header">
             <div>
               <p className="eyebrow">Saved responses</p>
@@ -403,8 +451,10 @@ function AdvisorPage() {
             <div className="saved-advisor-list">
               {savedResponses.map((advisorResponse) => (
                 <AdvisorResponseCard
-                  key={advisorResponse.id}
-                  advisorResponse={advisorResponse}
+                    key={advisorResponse.id}
+                    advisorResponse={advisorResponse}
+                    onDelete={handleDeleteSavedResponse}
+                    isDeleting={deletingResponseId === advisorResponse.id}
                 />
               ))}
             </div>
@@ -417,7 +467,7 @@ function AdvisorPage() {
               </p>
             </div>
           )}
-        </aside>
+        </section>
       </section>
     </main>
   );

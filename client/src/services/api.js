@@ -127,6 +127,12 @@ export async function getAdvisorHistory(goalId = null) {
   return apiRequest(`/advisor/history${queryString}`);
 }
 
+export async function deleteAdvisorResponse(responseId) {
+  return apiRequest(`/advisor/responses/${responseId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getNotifications() {
   return apiRequest("/notifications");
 }
