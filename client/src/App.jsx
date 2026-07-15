@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SessionTimeout from "./components/SessionTimeout";
 import SmartAdvisorWidget from "./components/SmartAdvisorWidget";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
+import DailyPriceCheck from "./components/DailyPriceCheck";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -21,6 +22,7 @@ function App() {
     <>
       <NavBar />
       <SessionTimeout />
+      <DailyPriceCheck />
 
       <Routes>
         <Route path="/" element={<LandingPage />} />

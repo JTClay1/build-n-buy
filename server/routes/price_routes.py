@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -141,6 +141,91 @@ def refresh_retailer_price(retailer_price, user_id, render=None):
         "scrape": scrape_result,
         "notification": notification.to_dict() if notification else None
     }
+
+@price_bp.route("/prices/daily-check", methods=["POST"])
+@jwt_required()
+def daily_price_check():
+    user_id = int(get_jwt_identity())
+    data = request.get_json() or {}
+
+    force = bool(data.get("force", False))
+
+    now = datetime.utcnow()
+    today_midnight = datetime(
+        year=now.year,
+        month=now.month,
+        day=now.day
+    )
+
+    refreshable_prices = (
+        RetailerPrice.query
+        .join(Goal)
+        .filter(
+            Goal.user_id == user_id,
+            Goal.status == "active",
+            RetailerPrice.is_active.is_(True),
+            RetailerPrice.product_url.isnot(None),
+            RetailerPrice.product_url != ""
+        )
+        .all()
+    )
+
+    results = []
+    checked_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for retailer_price in refreshable_prices:
+        if (
+            not force
+            and retailer_price.last_checked_at
+            and retailer_price.last_checked_at >= today_midnight
+        ):
+            skipped_count += 1
+
+            results.append({
+                "status": "skipped",
+                "price_id": retailer_price.id,
+                "retailer_name": retailer_price.retailer_name,
+                "reason": "Already checked today"
+            })
+
+            continue
+
+        try:
+            result = refresh_retailer_price(
+                retailer_price=retailer_price,
+                user_id=user_id
+            )
+
+            checked_count += 1
+
+            results.append({
+                "status": "updated",
+                "price_id": retailer_price.id,
+                "retailer_name": retailer_price.retailer_name,
+                "result": result
+            })
+        except PriceScrapeError as error:
+            failed_count += 1
+
+            results.append({
+                "status": "failed",
+                "price_id": retailer_price.id,
+                "retailer_name": retailer_price.retailer_name,
+                "error": str(error)
+            })
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Daily price auto-check completed",
+        "checked_count": checked_count,
+        "skipped_count": skipped_count,
+        "failed_count": failed_count,
+        "total_refreshable_prices": len(refreshable_prices),
+        "results": results
+    }), 200
 
 
 @price_bp.route("/goals/<int:goal_id>/prices", methods=["GET"])
