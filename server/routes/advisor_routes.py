@@ -725,7 +725,7 @@ def normalize_string_list(value, fallback_items, max_items=6):
     return cleaned_items[:max_items]
 
 
-def build_ai_advisor_response(message, context_type, rule_based_response):
+def build_ai_advisor_response(message, context_type, rule_based_response, advisor_mode="standard"):
     api_key = os.getenv("OPENAI_API_KEY")
     model = os.getenv("OPENAI_ADVISOR_MODEL", "gpt-5.6-luna")
 
@@ -737,6 +737,7 @@ def build_ai_advisor_response(message, context_type, rule_based_response):
     payload = {
         "user_message": message,
         "context_type": context_type,
+        "advisor_mode": advisor_mode,
         "rule_based_response": rule_based_response
     }
 
@@ -760,6 +761,24 @@ Required JSON shape:
   "advisor_note": "string"
 }
 """
+
+    alternative_mode_instructions = {
+        "budget_alternatives": """
+The user clicked Find Budget Alternatives.
+Strictly return product alternative ideas.
+Focus on cheaper alternatives, previous-generation models, refurbished/open-box options, cheaper bundles, and similar lower-cost products.
+Do not give generic budget advice unless it directly explains how an alternative product affects the purchase goal.
+""",
+        "premium_alternatives": """
+The user clicked Find Premium Alternatives.
+Strictly return product alternative ideas.
+Focus on upgraded models, premium versions, better long-term value, stronger warranties, better bundles, and higher-quality competing products.
+Do not give generic budget advice unless it directly explains how a premium alternative affects the purchase goal.
+"""
+    }.get(advisor_mode, "")
+
+    if alternative_mode_instructions:
+        system_prompt = f"{system_prompt}\n\nSpecial mode instructions:\n{alternative_mode_instructions}"
 
     user_prompt = json.dumps(payload, default=str)
 
@@ -872,6 +891,58 @@ def merge_ai_response(rule_based_response, ai_response):
         "response_source": "openai"
     }
 
+def apply_alternative_mode(rule_based_response, advisor_mode, goal):
+    if advisor_mode == "standard":
+        return rule_based_response
+
+    if not goal:
+        return rule_based_response
+
+    updated_response = dict(rule_based_response)
+
+    item_name = goal.item_name
+    target_amount = format_currency(goal.target_amount)
+
+    if advisor_mode == "budget_alternatives":
+        updated_response["summary"] = (
+            f"Here are budget-friendly alternative ideas for {item_name}."
+        )
+        updated_response["recommendations"] = [
+            f"Look for previous-generation versions of {item_name} that deliver most of the same value for less.",
+            f"Compare refurbished, open-box, or certified pre-owned options from reputable retailers before paying the full {target_amount} target.",
+            "Check whether a bundle is raising the price. A base model plus only the accessories you actually need may be cheaper.",
+            "Look for competing products with similar core features but fewer premium extras.",
+            "Prioritize alternatives that keep the main use case intact while lowering the total price."
+        ]
+        updated_response["action_items"] = [
+            "Compare at least three cheaper alternatives before buying.",
+            "Check used, refurbished, and open-box pricing.",
+            "Verify warranty, return policy, and seller reputation.",
+            "Update the goal target if a cheaper alternative becomes the new plan."
+        ]
+    elif advisor_mode == "premium_alternatives":
+        updated_response["summary"] = (
+            f"Here are premium alternative ideas for {item_name}."
+        )
+        updated_response["recommendations"] = [
+            f"Look for upgraded versions of {item_name} with better performance, storage, durability, or long-term value.",
+            "Compare premium bundles only if the included extras are things you would actually buy separately.",
+            "Consider higher-rated competing products if they offer better warranty, support, or resale value.",
+            "Look for models that cost more upfront but may last longer or reduce upgrade pressure later.",
+            "Only choose a premium alternative if the extra cost meaningfully improves your actual use case."
+        ]
+        updated_response["action_items"] = [
+            "Compare at least three premium alternatives.",
+            "Estimate how much the premium option would increase the goal target.",
+            "Check whether the upgrade changes your monthly savings target.",
+            "Avoid paying more for features you are unlikely to use."
+        ]
+
+    updated_response["advisor_note"] = (
+        "These are product alternative ideas, not financial advice. Compare current prices, product details, and return policies before buying."
+    )
+
+    return updated_response
 
 @advisor_bp.route("/advisor", methods=["POST"])
 @jwt_required()
@@ -882,11 +953,26 @@ def create_advisor_response():
     message = data.get("message", "").strip()
     context_type = data.get("context_type", "general")
     goal_id = data.get("goal_id")
+    advisor_mode = data.get("advisor_mode", "standard")
 
     allowed_contexts = ["general", "goal", "dashboard"]
 
+    allowed_advisor_modes = [
+        "standard",
+        "budget_alternatives",
+        "premium_alternatives"
+    ]
+
     if context_type not in allowed_contexts:
         return jsonify({"error": "Invalid advisor context type"}), 400
+    
+    if advisor_mode not in allowed_advisor_modes:
+        return jsonify({"error": "Invalid advisor mode"}), 400
+
+    if advisor_mode != "standard" and context_type != "goal":
+        return jsonify({
+            "error": "Product alternative advisor modes require goal context"
+        }), 400
 
     if not message:
         return jsonify({"error": "Message is required"}), 400
@@ -902,10 +988,17 @@ def create_advisor_response():
         error_message, status_code = error_result
         return jsonify({"error": error_message}), status_code
 
+    rule_based_response = apply_alternative_mode(
+        rule_based_response,
+        advisor_mode,
+        goal
+    )
+
     ai_response = build_ai_advisor_response(
         message,
         context_type,
-        rule_based_response
+        rule_based_response,
+        advisor_mode
     )
 
     advisor_response = merge_ai_response(
@@ -920,6 +1013,7 @@ def create_advisor_response():
             "user_id": user_id,
             "goal_id": goal.id if goal else None,
             "context_type": context_type,
+            "advisor_mode": advisor_mode,
             "user_message": message,
             "response": advisor_response,
             "created_at": None,
