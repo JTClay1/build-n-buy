@@ -1036,3 +1036,24 @@ def get_advisor_history():
             response.to_dict() for response in advisor_responses
         ]
     }), 200
+
+@advisor_bp.route("/advisor/responses/<int:response_id>", methods=["DELETE"])
+@jwt_required()
+def delete_advisor_response(response_id):
+    user_id = int(get_jwt_identity())
+
+    advisor_response = SmartAdvisorResponse.query.filter_by(
+        id=response_id,
+        user_id=user_id
+    ).first()
+
+    if not advisor_response:
+        return jsonify({"error": "Advisor response not found"}), 404
+
+    db.session.delete(advisor_response)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Advisor response deleted successfully",
+        "deleted_id": response_id
+    }), 200

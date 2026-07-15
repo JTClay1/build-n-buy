@@ -2602,3 +2602,132 @@ a:hover {
     flex-direction: column;
   }
 }
+
+/* Advisor page polish overrides */
+
+.advisor-page {
+  width: min(1040px, calc(100% - 40px));
+  margin: 0 auto;
+  display: grid;
+  gap: 28px;
+}
+
+.advisor-page-hero {
+  width: 100%;
+  margin-top: 28px;
+}
+
+.advisor-snapshot-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.advisor-workspace-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.advisor-page-card {
+  width: 100%;
+}
+
+.advisor-saved-section {
+  margin-bottom: 48px;
+}
+
+.advisor-saved-section .section-header {
+  align-items: center;
+}
+
+.advisor-saved-section .section-header > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+  font-weight: 950;
+}
+
+.saved-advisor-list {
+  display: grid;
+  gap: 16px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.saved-advisor-card {
+  padding: 22px;
+  box-shadow: none;
+}
+
+.advisor-current-response {
+  margin-top: 4px;
+}
+
+@media (max-width: 1050px) {
+  .advisor-page {
+    width: min(920px, calc(100% - 32px));
+  }
+
+  .advisor-snapshot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .advisor-page {
+    width: min(100% - 24px, 100%);
+  }
+
+  .advisor-snapshot-grid,
+  .advisor-context-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .advisor-page-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .advisor-response-topline {
+    flex-direction: column;
+  }
+}
+
+.advisor-response-meta {
+  align-items: center;
+}
+
+.advisor-response-meta > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.advisor-delete-response-button {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(148, 43, 43, 0.12);
+  color: #7c2424;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.advisor-delete-response-button:hover {
+  background: rgba(148, 43, 43, 0.18);
+}
+
+.advisor-delete-response-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
