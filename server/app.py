@@ -1,10 +1,12 @@
 import os
 
 from flask import Flask
+from sqlalchemy import create_engine
+
 from config import Config
 from extensions import db, migrate, bcrypt, jwt, cors
 
-# Import models so Flask-Migrate knows about them!
+# Import models so Flask-Migrate / SQLAlchemy metadata knows about them.
 import models
 
 app = Flask(__name__)
@@ -14,7 +16,7 @@ app.config.from_object(Config)
 database_url = os.getenv("DATABASE_URL")
 
 if database_url:
-    # Render sometimes provides postgres://, but SQLAlchemy expects postgresql://
+    # Render/Postgres URLs can use postgres://, but SQLAlchemy expects postgresql://
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
 
@@ -31,6 +33,12 @@ allowed_origins = [
 
 if frontend_url and frontend_url not in allowed_origins:
     allowed_origins.append(frontend_url)
+
+# Initialize extensions.
+db.init_app(app)
+migrate.init_app(app, db)
+bcrypt.init_app(app)
+jwt.init_app(app)
 
 cors.init_app(
     app,
@@ -55,7 +63,7 @@ from routes.notification_routes import notification_bp
 from routes.budget_routes import budget_bp
 from routes.price_routes import price_bp
 
-# Register Blueprints with a URL prefix.
+# Register Blueprints.
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(goal_bp, url_prefix="/api/goals")
 app.register_blueprint(contribution_bp, url_prefix="/api")
@@ -65,15 +73,20 @@ app.register_blueprint(notification_bp, url_prefix="/api")
 app.register_blueprint(budget_bp, url_prefix="/api")
 app.register_blueprint(price_bp, url_prefix="/api")
 
-# In production, make sure Render Postgres has the required tables.
-# db.create_all() is safe/idempotent: it creates missing tables but does not drop existing data.
-if os.getenv("DATABASE_URL"):
-    with app.app_context():
-        print("Ensuring production database tables exist...")
-        db.create_all()
-        print("Production database tables ready.")
+# Production table creation for Render Postgres.
+# This bypasses Flask-Migrate/Flask app-context issues and uses SQLAlchemy metadata directly.
+if database_url:
+    print("Ensuring production database tables exist...")
 
-# Health check routes.
+    engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
+
+    db.metadata.create_all(bind=engine)
+
+    engine.dispose()
+
+    print("Production database tables ready.")
+
+
 @app.route("/")
 def index():
     return {"message": "Welcome to the Build n' Buy API!"}
