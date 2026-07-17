@@ -284,7 +284,7 @@ function PriceComparisonCard({ goalId }) {
           <div className="price-spinner" />
           <h3>Checking live prices...</h3>
           <p>
-            We’re refreshing saved retailer URLs and updating your price summary.
+            We're checking all saved retailers for any price changes.
           </p>
         </div>
       </div>
