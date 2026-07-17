@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from config import Config
 from extensions import db, migrate, bcrypt, jwt, cors
@@ -8,14 +10,44 @@ import models
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialize all extensions with the app
+# Use Render/Postgres DATABASE_URL in production, keep local config as fallback.
+database_url = os.getenv("DATABASE_URL")
+
+if database_url:
+    # Render sometimes provides postgres://, but SQLAlchemy expects postgresql://
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+
+# Frontend URL for production CORS.
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+if frontend_url not in allowed_origins:
+    allowed_origins.append(frontend_url)
+
+# Initialize all extensions with the app.
 db.init_app(app)
 migrate.init_app(app, db)
 bcrypt.init_app(app)
 jwt.init_app(app)
-cors.init_app(app)
 
-# Import Blueprints
+cors.init_app(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": allowed_origins,
+        }
+    },
+    supports_credentials=True,
+)
+
+# Import Blueprints.
 from routes.auth_routes import auth_bp
 from routes.goal_routes import goal_bp
 from routes.contribution_routes import contribution_bp
@@ -25,9 +57,9 @@ from routes.notification_routes import notification_bp
 from routes.budget_routes import budget_bp
 from routes.price_routes import price_bp
 
-# Register Blueprints with a URL prefix
-app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(goal_bp, url_prefix='/api/goals')
+# Register Blueprints with a URL prefix.
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(goal_bp, url_prefix="/api/goals")
 app.register_blueprint(contribution_bp, url_prefix="/api")
 app.register_blueprint(dashboard_bp, url_prefix="/api")
 app.register_blueprint(advisor_bp, url_prefix="/api")
@@ -35,10 +67,17 @@ app.register_blueprint(notification_bp, url_prefix="/api")
 app.register_blueprint(budget_bp, url_prefix="/api")
 app.register_blueprint(price_bp, url_prefix="/api")
 
-# A simple health check route
-@app.route('/')
+
+# Health check routes.
+@app.route("/")
 def index():
     return {"message": "Welcome to the Build n' Buy API!"}
 
-if __name__ == '__main__':
+
+@app.route("/api/health")
+def health_check():
+    return {"status": "ok", "message": "Build n' Buy API is healthy"}
+
+
+if __name__ == "__main__":
     app.run(port=5555, debug=True)
