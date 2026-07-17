@@ -2951,3 +2951,30 @@ a:hover {
 [data-theme="dark"] .page-intro-text h1 {
   color: #f4fff7 !important;
 }
+.saved-advisor-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.saved-advisor-pagination button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: rgba(52, 122, 85, 0.12);
+  color: var(--green-800);
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.saved-advisor-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.saved-advisor-pagination span {
+  color: var(--green-800);
+  font-weight: 900;
+}
