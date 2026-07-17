@@ -10,6 +10,8 @@ import {
   saveAdvisorResponse,
 } from "../services/api";
 
+const SAVED_RESPONSES_PER_PAGE = 5;
+
 function formatCurrency(amount) {
   return Number(amount || 0).toFixed(2);
 }
@@ -21,21 +23,21 @@ function AdvisorResponseCard({ advisorResponse, onDelete, isDeleting }) {
     <article className="advisor-response-card saved-advisor-card">
       <div className="advisor-response-meta">
         <div>
-            <span>{advisorResponse.context_type}</span>
-            {advisorResponse.created_at && (
-                <span>{new Date(advisorResponse.created_at).toLocaleString()}</span>
-            )}
+          <span>{advisorResponse.context_type}</span>
+          {advisorResponse.created_at && (
+            <span>{new Date(advisorResponse.created_at).toLocaleString()}</span>
+          )}
         </div>
 
         <button
-            type="button"
-            className="advisor-delete-response-button"
-            disabled={isDeleting}
-            onClick={() => onDelete(advisorResponse.id)}
+          type="button"
+          className="advisor-delete-response-button"
+          disabled={isDeleting}
+          onClick={() => onDelete(advisorResponse.id)}
         >
-            {isDeleting ? "Deleting..." : "Delete"}
+          {isDeleting ? "Deleting..." : "Delete"}
         </button>
-        </div>
+      </div>
 
       <p className="advisor-question">“{advisorResponse.user_message}”</p>
 
@@ -74,6 +76,7 @@ function AdvisorPage() {
   const [snapshot, setSnapshot] = useState(null);
   const [goals, setGoals] = useState([]);
   const [savedResponses, setSavedResponses] = useState([]);
+  const [savedResponsesPage, setSavedResponsesPage] = useState(1);
   const [currentResponse, setCurrentResponse] = useState(null);
   const [message, setMessage] = useState("");
   const [contextType, setContextType] = useState("dashboard");
@@ -89,6 +92,24 @@ function AdvisorPage() {
     () => goals.filter((goal) => goal.status === "active"),
     [goals]
   );
+
+  const totalSavedResponsePages = useMemo(
+    () =>
+      Math.max(
+        1,
+        Math.ceil(savedResponses.length / SAVED_RESPONSES_PER_PAGE)
+      ),
+    [savedResponses.length]
+  );
+
+  const paginatedSavedResponses = useMemo(() => {
+    const startIndex = (savedResponsesPage - 1) * SAVED_RESPONSES_PER_PAGE;
+
+    return savedResponses.slice(
+      startIndex,
+      startIndex + SAVED_RESPONSES_PER_PAGE
+    );
+  }, [savedResponses, savedResponsesPage]);
 
   async function loadAdvisorPageData() {
     setIsLoadingPage(true);
@@ -114,6 +135,12 @@ function AdvisorPage() {
   useEffect(() => {
     loadAdvisorPageData();
   }, []);
+
+  useEffect(() => {
+    if (savedResponsesPage > totalSavedResponsePages) {
+      setSavedResponsesPage(totalSavedResponsePages);
+    }
+  }, [savedResponsesPage, totalSavedResponsePages]);
 
   function handleContextChange(event) {
     const selectedContext = event.target.value;
@@ -194,6 +221,7 @@ function AdvisorPage() {
         ...currentResponses,
       ]);
 
+      setSavedResponsesPage(1);
       setSuccessMessage("Advisor response saved.");
     } catch (err) {
       setError(err.message);
@@ -202,40 +230,42 @@ function AdvisorPage() {
     }
   }
 
-async function handleDeleteSavedResponse(responseId) {
-  const confirmed = window.confirm(
-    "Delete this saved advisor response? This cannot be undone."
-  );
-
-  if (!confirmed) return;
-
-  setError("");
-  setSuccessMessage("");
-  setDeletingResponseId(responseId);
-
-  try {
-    await deleteAdvisorResponse(responseId);
-
-    setSavedResponses((currentResponses) =>
-      currentResponses.filter((advisorResponse) => advisorResponse.id !== responseId)
+  async function handleDeleteSavedResponse(responseId) {
+    const confirmed = window.confirm(
+      "Delete this saved advisor response? This cannot be undone."
     );
 
-    if (currentResponse?.id === responseId) {
-      setCurrentResponse({
-        ...currentResponse,
-        id: null,
-        is_saved: false,
-        created_at: null,
-      });
-    }
+    if (!confirmed) return;
 
-    setSuccessMessage("Advisor response deleted.");
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setDeletingResponseId(null);
+    setError("");
+    setSuccessMessage("");
+    setDeletingResponseId(responseId);
+
+    try {
+      await deleteAdvisorResponse(responseId);
+
+      setSavedResponses((currentResponses) =>
+        currentResponses.filter(
+          (advisorResponse) => advisorResponse.id !== responseId
+        )
+      );
+
+      if (currentResponse?.id === responseId) {
+        setCurrentResponse({
+          ...currentResponse,
+          id: null,
+          is_saved: false,
+          created_at: null,
+        });
+      }
+
+      setSuccessMessage("Advisor response deleted.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingResponseId(null);
+    }
   }
-}  
 
   function usePrompt(prompt, promptContext = contextType) {
     setMessage(prompt);
@@ -366,7 +396,10 @@ async function handleDeleteSavedResponse(responseId) {
             <button
               type="button"
               onClick={() =>
-                usePrompt("How should I think about buying now versus waiting?", "general")
+                usePrompt(
+                  "How should I think about buying now versus waiting?",
+                  "general"
+                )
               }
             >
               Buy now or wait?
@@ -448,16 +481,50 @@ async function handleDeleteSavedResponse(responseId) {
           </div>
 
           {savedResponses.length > 0 ? (
-            <div className="saved-advisor-list">
-              {savedResponses.map((advisorResponse) => (
-                <AdvisorResponseCard
+            <>
+              <div className="saved-advisor-list">
+                {paginatedSavedResponses.map((advisorResponse) => (
+                  <AdvisorResponseCard
                     key={advisorResponse.id}
                     advisorResponse={advisorResponse}
                     onDelete={handleDeleteSavedResponse}
                     isDeleting={deletingResponseId === advisorResponse.id}
-                />
-              ))}
-            </div>
+                  />
+                ))}
+              </div>
+
+              {savedResponses.length > SAVED_RESPONSES_PER_PAGE && (
+                <div className="saved-advisor-pagination">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSavedResponsesPage((currentPage) =>
+                        Math.max(currentPage - 1, 1)
+                      )
+                    }
+                    disabled={savedResponsesPage === 1}
+                  >
+                    Previous
+                  </button>
+
+                  <span>
+                    Page {savedResponsesPage} of {totalSavedResponsePages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSavedResponsesPage((currentPage) =>
+                        Math.min(currentPage + 1, totalSavedResponsePages)
+                      )
+                    }
+                    disabled={savedResponsesPage === totalSavedResponsePages}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="advisor-empty-state">
               <h3>No saved responses yet</h3>
