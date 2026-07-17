@@ -26,22 +26,20 @@ frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://build-n-buy.vercel.app",
 ]
 
-if frontend_url not in allowed_origins:
+if frontend_url and frontend_url not in allowed_origins:
     allowed_origins.append(frontend_url)
-
-# Initialize all extensions with the app.
-db.init_app(app)
-migrate.init_app(app, db)
-bcrypt.init_app(app)
-jwt.init_app(app)
 
 cors.init_app(
     app,
     resources={
         r"/api/*": {
             "origins": allowed_origins,
+            "methods": ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "expose_headers": ["Content-Type", "Authorization"],
         }
     },
     supports_credentials=True,
