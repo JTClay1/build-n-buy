@@ -65,6 +65,13 @@ app.register_blueprint(notification_bp, url_prefix="/api")
 app.register_blueprint(budget_bp, url_prefix="/api")
 app.register_blueprint(price_bp, url_prefix="/api")
 
+# In production, make sure Render Postgres has the required tables.
+# db.create_all() is safe/idempotent: it creates missing tables but does not drop existing data.
+if os.getenv("DATABASE_URL"):
+    with app.app_context():
+        print("Ensuring production database tables exist...")
+        db.create_all()
+        print("Production database tables ready.")
 
 # Health check routes.
 @app.route("/")
