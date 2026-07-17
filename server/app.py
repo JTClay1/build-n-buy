@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask
+from flask import Flask, make_response, request
 from sqlalchemy import create_engine
 
 from config import Config
@@ -52,6 +52,26 @@ cors.init_app(
     },
     supports_credentials=True,
 )
+
+@app.before_request
+def handle_cors_preflight():
+    if request.method == "OPTIONS":
+        response = make_response("", 204)
+        return response
+
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get("Origin")
+
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+
+    return response
 
 # Import Blueprints.
 from routes.auth_routes import auth_bp
