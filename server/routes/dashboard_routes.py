@@ -23,11 +23,15 @@ def get_dashboard():
     overall_progress = 0
 
     if total_target_amount > 0:
+        # Defensive capping keeps imported or legacy overfunded rows from showing
+        # more than 100% aggregate progress.
         overall_progress = min(
             round((total_saved_amount / total_target_amount) * 100, 1),
             100
         )
 
+    # Recalculate rather than summing the persisted compatibility column so the
+    # dashboard reflects today's remaining time and savings.
     total_monthly_target = sum(
         goal.calculated_monthly_target()
         for goal in goals

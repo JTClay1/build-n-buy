@@ -11,6 +11,8 @@ function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // The endpoint returns summary and card data from one database snapshot, so a
+    // single request keeps aggregate values consistent with the rendered goals.
     async function loadDashboard() {
       try {
         const data = await getDashboard();

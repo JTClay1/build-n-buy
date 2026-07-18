@@ -88,6 +88,8 @@ function AdvisorPage() {
   const [isSavingResponse, setIsSavingResponse] = useState(false);
   const [deletingResponseId, setDeletingResponseId] = useState(null);
 
+  // Scrapped/completed goals remain in history but are excluded from new
+  // goal-specific planning prompts.
   const activeGoals = useMemo(
     () => goals.filter((goal) => goal.status === "active"),
     [goals]
@@ -102,6 +104,8 @@ function AdvisorPage() {
     [savedResponses.length]
   );
 
+  // Pagination is client-side because the bounded history endpoint returns a small
+  // recent set and deletion must update the visible page immediately.
   const paginatedSavedResponses = useMemo(() => {
     const startIndex = (savedResponsesPage - 1) * SAVED_RESPONSES_PER_PAGE;
 
@@ -116,6 +120,8 @@ function AdvisorPage() {
     setError("");
 
     try {
+      // These resources are independent and can load concurrently; rendering waits
+      // for one coherent advisor workspace rather than three partial states.
       const [snapshotData, goalsData, historyData] = await Promise.all([
         getAdvisorSnapshot(),
         getGoals(),
@@ -137,6 +143,8 @@ function AdvisorPage() {
   }, []);
 
   useEffect(() => {
+    // Deleting the last item on a page can reduce the page count; clamp the cursor
+    // instead of leaving the user on an empty, out-of-range page.
     if (savedResponsesPage > totalSavedResponsePages) {
       setSavedResponsesPage(totalSavedResponsePages);
     }
@@ -152,6 +160,7 @@ function AdvisorPage() {
     if (selectedContext !== "goal") {
       setGoalId("");
     } else if (!goalId && activeGoals[0]) {
+      // Select a valid default so switching into goal context is immediately usable.
       setGoalId(String(activeGoals[0].id));
     }
   }
@@ -216,6 +225,7 @@ function AdvisorPage() {
         is_saved: true,
       });
 
+      // Prepend the server representation to match newest-first history ordering.
       setSavedResponses((currentResponses) => [
         data.advisor_response,
         ...currentResponses,
@@ -251,6 +261,8 @@ function AdvisorPage() {
       );
 
       if (currentResponse?.id === responseId) {
+        // Keep the generated content visible after unsaving, but return it to a
+        // transient state so it can be saved again if desired.
         setCurrentResponse({
           ...currentResponse,
           id: null,

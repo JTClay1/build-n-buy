@@ -17,6 +17,8 @@ export function AuthProvider({ children }) {
       }
 
       try {
+        // A stored token is only a credential candidate; /me is the authority on
+        // whether it is still valid and which user it represents.
         const data = await getCurrentUser();
         setUser(data.user);
       } catch (error) {
@@ -32,6 +34,8 @@ export function AuthProvider({ children }) {
 
   async function login(credentials) {
     const data = await loginUser(credentials);
+
+    // Persist credentials only after the server has authenticated the request.
     localStorage.setItem("token", data.token);
     setUser(data.user);
     return data.user;
@@ -39,6 +43,9 @@ export function AuthProvider({ children }) {
 
   async function signup(userData) {
     const data = await signupUser(userData);
+
+    // Signup returns the same authenticated shape as login, keeping downstream
+    // routing independent of how the session was created.
     localStorage.setItem("token", data.token);
     setUser(data.user);
     return data.user;

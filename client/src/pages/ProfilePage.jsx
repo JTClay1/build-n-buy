@@ -17,6 +17,8 @@ function formatCurrency(amount) {
 function ProfilePage() {
   const { user } = useAuth();
 
+  // Independent form state prevents a save/reset in one profile section from
+  // clearing input or status in the password and budget sections.
   const [profileData, setProfileData] = useState({
     username: "",
     email: "",
@@ -51,6 +53,8 @@ function ProfilePage() {
   const [isSavingBudgetItem, setIsSavingBudgetItem] = useState(false);
 
   useEffect(() => {
+    // Auth context arrives asynchronously after token validation; copy it into
+    // controlled fields only when the authoritative user is available.
     if (user) {
       setProfileData({
         username: user.username || "",
@@ -67,6 +71,8 @@ function ProfilePage() {
         const data = await getBudgetItems();
 
         setBudgetItems(data.budget_items || []);
+        // Use the server-computed summary because it also includes active goal
+        // commitments that are not present in this page's local item list.
         setBudgetSummary(data.summary || null);
       } catch (err) {
         setError(err.message);
@@ -119,6 +125,7 @@ function ProfilePage() {
       return;
     }
 
+    // An empty optional budget is sent as null so the API can clear a prior value.
     const monthlyBudget =
       profileData.monthly_budget === ""
         ? null
@@ -219,6 +226,8 @@ function ProfilePage() {
       });
 
       setBudgetItems((currentItems) => [data.budget_item, ...currentItems]);
+      // Every budget mutation returns a fresh cross-resource summary; avoid
+      // reproducing goal-aware affordability calculations in the browser.
       setBudgetSummary(data.summary);
       setBudgetMessage("Budget item added successfully.");
 
@@ -275,6 +284,8 @@ function ProfilePage() {
     }
   }
 
+  // Preserve inactive rows in their income/expense section so users can reactivate
+  // them without losing the original classification.
   const incomeItems = budgetItems.filter(
     (item) => item.item_type === "income"
   );

@@ -5,7 +5,7 @@ from extensions import db, bcrypt
 from models import User
 from utils.auth import generate_token
 
-# Create a Blueprint for our auth routes
+# Authentication routes share the /api/auth prefix assigned in app.py.
 auth_bp = Blueprint('auth', __name__)
 
 
@@ -26,6 +26,8 @@ def signup():
     if not username or not email or not password:
         return jsonify({"error": "Missing required fields"}), 400
 
+    # Canonicalize identifiers before uniqueness checks so casing/whitespace
+    # cannot create accounts that are effectively duplicates at login time.
     username = username.strip()
     email = email.strip().lower()
     display_name = display_name.strip() if display_name else username
@@ -74,6 +76,8 @@ def login():
 
     user = User.query.filter_by(email=email).first()
 
+    # Return one generic failure for missing users and bad passwords to avoid
+    # revealing which email addresses are registered.
     if user and bcrypt.check_password_hash(user.password_hash, password):
         token = generate_token(user.id)
 
@@ -152,6 +156,7 @@ def update_profile():
     if "monthly_budget" in data:
         monthly_budget = data["monthly_budget"]
 
+        # Empty form values intentionally clear the optional profile-level budget.
         if monthly_budget in ["", None]:
             user.monthly_budget = None
         else:

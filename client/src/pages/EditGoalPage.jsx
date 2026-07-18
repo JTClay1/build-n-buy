@@ -30,6 +30,8 @@ function calculateMonthsRemaining(targetDateValue) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Interpret the date at local midnight to avoid UTC parsing shifting the user's
+  // selected calendar day, then mirror the server's 30-day planning month.
   const targetDate = new Date(`${targetDateValue}T00:00:00`);
   const millisecondsRemaining = targetDate - today;
   const daysRemaining = millisecondsRemaining / (1000 * 60 * 60 * 24);
@@ -114,6 +116,7 @@ function EditGoalPage() {
       return;
     }
 
+    // Completed goals may retain a historical target date; active plans cannot.
     if (monthsRemaining <= 0 && formData.status !== "completed") {
       setError("Target date must be in the future.");
       return;
@@ -181,6 +184,8 @@ function EditGoalPage() {
       ? Number(formData.target_amount) - Number(goal?.saved_amount || 0)
       : 0;
 
+  // Preview only unsaved work; the API recalculates and remains authoritative
+  // after submission.
   const previewMonthlyTarget =
     remainingAmount > 0 && monthsRemaining > 0
       ? remainingAmount / monthsRemaining

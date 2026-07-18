@@ -12,6 +12,8 @@ notification_bp = Blueprint("notifications", __name__)
 def get_notifications():
     user_id = int(get_jwt_identity())
 
+    # Bound the feed payload while calculating unread_count across the complete
+    # user inbox so the badge remains accurate.
     notifications = (
         Notification.query
         .filter_by(user_id=user_id)
@@ -42,6 +44,8 @@ def create_demo_notification():
     goal_id = data.get("goal_id")
     goal = None
 
+    # A supplied goal must belong to the caller; otherwise the generic advisor
+    # notification is used without attaching another user's data.
     if goal_id:
         goal = Goal.query.filter_by(id=goal_id, user_id=user_id).first()
 

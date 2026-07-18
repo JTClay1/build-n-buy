@@ -15,6 +15,7 @@ def sync_goal_after_savings_change(goal):
     goal.saved_amount = max(goal.saved_amount, 0)
 
     if goal.saved_amount >= goal.target_amount:
+        # Savings cannot exceed the purchase target in the goal aggregate.
         goal.saved_amount = goal.target_amount
         goal.status = "completed"
     elif goal.status == "completed":
@@ -93,6 +94,8 @@ def delete_contribution(contribution_id):
     if not contribution:
         return jsonify({"error": "Contribution not found"}), 404
 
+    # Resolve ownership through the parent goal before exposing or mutating the
+    # ledger entry; contribution IDs alone are not an authorization boundary.
     goal = Goal.query.filter_by(
         id=contribution.goal_id,
         user_id=user_id
@@ -101,6 +104,8 @@ def delete_contribution(contribution_id):
     if not goal:
         return jsonify({"error": "Goal not found"}), 404
 
+    # Deleting ledger history must reverse its effect before recalculating status
+    # and the remaining monthly target.
     if contribution.entry_type == "deposit":
         goal.saved_amount -= contribution.amount
     else:

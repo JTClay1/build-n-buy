@@ -15,7 +15,8 @@ class User(db.Model):
     display_name = db.Column(db.String(80))
     monthly_budget = db.Column(db.Float)
 
-    # Relationship: One User can have many Goals
+    # User-owned records are lifecycle data: deleting an account should not leave
+    # goals or advisor artifacts that can no longer be reached.
     goals = db.relationship(
         'Goal',
         backref='user',
@@ -68,18 +69,18 @@ class Goal(db.Model):
     target_amount = db.Column(db.Float, nullable=False)
     saved_amount = db.Column(db.Float, default=0.0)
 
-    # Build Plan specific fields
-    # months_to_goal is kept for backwards compatibility, but target_date is now
-    # the source of truth for timeline calculations.
+    # target_date is the planning source of truth. The two numeric fields remain
+    # persisted for compatibility with older clients and migrations.
     months_to_goal = db.Column(db.Integer, nullable=False)
     monthly_target = db.Column(db.Float, nullable=False)
     target_date = db.Column(db.DateTime, nullable=False)
 
-    # Status: 'active', 'completed', or 'scrapped'
+    # Route validation constrains this value to active, completed, or scrapped.
     status = db.Column(db.String(20), default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationship: One Goal can have many Contributions
+    # Contributions and price/advisor records have no meaning after their goal is
+    # removed, so the ORM owns and deletes them as one aggregate.
     contributions = db.relationship(
         'Contribution',
         backref='goal',
@@ -114,6 +115,8 @@ class Goal(db.Model):
         return min(round(progress, 1), 100)
 
     def months_remaining(self):
+        # Older rows may predate target_date; retain a usable plan rather than
+        # breaking serialization while those rows are migrated.
         if not self.target_date:
             return max(self.months_to_goal or 1, 1)
 
@@ -124,6 +127,7 @@ class Goal(db.Model):
         if days_remaining <= 0:
             return 0
 
+        # The product defines a planning month as 30 days across API and UI.
         return ceil(days_remaining / 30)
 
     def calculated_monthly_target(self):
@@ -138,11 +142,14 @@ class Goal(db.Model):
         months_left = self.months_remaining()
 
         if months_left <= 0:
+            # An overdue goal still needs the full remainder immediately.
             return round(remaining, 2)
 
         return round(remaining / months_left, 2)
     
     def lowest_retailer_price(self):
+        # Disabled comparisons remain in history but cannot influence purchase
+        # recommendations or the displayed best price.
         active_prices = [
             retailer_price
             for retailer_price in self.retailer_prices
@@ -168,10 +175,10 @@ class Goal(db.Model):
             "remaining_amount": self.remaining_amount(),
             "progress_percentage": self.progress_percentage(),
 
-            # Legacy field, still included so old frontend/backend code does not break
+            # Preserve the legacy field while clients transition to date-based data.
             "months_to_goal": self.months_to_goal,
 
-            # New date-based timeline fields
+            # These values are derived at response time so aging goals stay current.
             "months_remaining": self.months_remaining(),
             "monthly_target": self.calculated_monthly_target(),
             "target_date": self.target_date.isoformat() if self.target_date else None,
@@ -181,6 +188,8 @@ class Goal(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
+        # Summary endpoints can omit the nested ledger to keep dashboard payloads
+        # small; detail endpoints use the complete representation by default.
         if include_contributions:
             data["contributions"] = [
                 contribution.to_dict() for contribution in self.contributions
@@ -209,6 +218,8 @@ class Contribution(db.Model):
         return f'<Contribution {self.entry_type} ${self.amount} to Goal {self.goal_id}>'
 
     def signed_amount(self):
+        # Store positive magnitudes in the database and expose direction separately
+        # so totals can be reconstructed without negative input values.
         if self.entry_type == "withdrawal":
             return -self.amount
 
@@ -247,6 +258,8 @@ class SmartAdvisorResponse(db.Model):
         try:
             return json.loads(self.response_json)
         except json.JSONDecodeError:
+            # Historical/plain-text rows remain readable even if their payload was
+            # saved before structured advisor responses were introduced.
             return {
                 "summary": self.response_json,
                 "recommendations": [],
@@ -295,6 +308,7 @@ class Notification(db.Model):
         return f'<Notification {self.title} user={self.user_id}>'
 
     def mark_read(self):
+        # Keep the timestamp coupled to the flag for auditability and UI display.
         self.is_read = True
         self.read_at = datetime.utcnow()
 
@@ -321,7 +335,7 @@ class BudgetItem(db.Model):
     title = db.Column(db.String(120), nullable=False)
     amount = db.Column(db.Float, nullable=False)
 
-    # income or expense
+    # Route validation limits this discriminator to income or expense.
     item_type = db.Column(db.String(20), nullable=False)
 
     category = db.Column(db.String(80))
@@ -410,6 +424,7 @@ class RetailerPrice(db.Model):
         return f'<RetailerPrice {self.retailer_name} ${self.price} goal={self.goal_id}>'
 
     def total_price(self):
+        # Comparisons use the checkout estimate, not the advertised shelf price.
         return round(
             float(self.price or 0)
             + float(self.shipping_cost or 0)

@@ -22,6 +22,8 @@ function calculateMonthsRemaining(targetDateValue) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Parse as local midnight and use the same 30-day planning month as the API so
+  // the form preview matches the saved plan.
   const targetDate = new Date(`${targetDateValue}T00:00:00`);
   const millisecondsRemaining = targetDate - today;
   const daysRemaining = millisecondsRemaining / (1000 * 60 * 60 * 24);
@@ -102,6 +104,8 @@ function NewGoalPage() {
 
   const monthsRemaining = calculateMonthsRemaining(formData.target_date);
 
+  // This is immediate feedback only; the server repeats validation and owns the
+  // persisted monthly target.
   const previewMonthlyTarget =
     Number(formData.target_amount) > 0 && monthsRemaining > 0
       ? Number(formData.target_amount) / monthsRemaining

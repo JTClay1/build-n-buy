@@ -16,6 +16,8 @@ function SessionTimeout() {
     }
 
     function getLastActivityTime() {
+      // localStorage preserves inactivity across reloads and shares it with other
+      // tabs using the same authenticated browser profile.
       return Number(localStorage.getItem(LAST_ACTIVITY_KEY) || Date.now());
     }
 
@@ -41,6 +43,8 @@ function SessionTimeout() {
     }
 
     function handleUserActivity() {
+      // Check before updating so the first event after a long idle period cannot
+      // silently revive an expired session.
       if (isSessionExpired()) {
         handleExpiredSession();
         return;
@@ -50,6 +54,8 @@ function SessionTimeout() {
     }
 
     function handleVisibilityChange() {
+      // Browsers throttle background intervals, so visibility is an explicit
+      // expiration checkpoint.
       if (document.visibilityState === "visible") {
         checkSession();
 
@@ -78,6 +84,8 @@ function SessionTimeout() {
     window.addEventListener("focus", checkSession);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    // A coarse interval is sufficient because direct user activity is also
+    // checked and avoids a continuously running high-frequency timer.
     const intervalId = window.setInterval(checkSession, 30 * 1000);
 
     return () => {

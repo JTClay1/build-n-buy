@@ -17,6 +17,8 @@ function formatDate(dateValue) {
 }
 
 function calculateProgress(goal) {
+  // Prefer the server's capped business calculation, with a fallback for older or
+  // partially cached payloads that only contain raw amounts.
   if (goal.progress_percentage !== undefined) {
     return Number(goal.progress_percentage);
   }
@@ -31,6 +33,8 @@ function calculateProgress(goal) {
 function GoalCard({ goal }) {
   const progress = calculateProgress(goal);
   const remainingAmount =
+    // remaining_amount is derived by the API; retain a local fallback so the card
+    // can render goal objects supplied by older endpoints.
     goal.remaining_amount !== undefined
       ? goal.remaining_amount
       : Math.max(goal.target_amount - goal.saved_amount, 0);
