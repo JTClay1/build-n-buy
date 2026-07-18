@@ -5,6 +5,7 @@ function PublicOnlyRoute({ children }) {
   const { isAuthenticated, authLoading } = useAuth();
 
   if (authLoading) {
+    // Defer the public-only decision until a persisted session has been validated.
     return (
       <main className="page">
         <p>Loading...</p>

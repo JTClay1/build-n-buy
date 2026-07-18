@@ -27,12 +27,16 @@ function DailyPriceCheck() {
     }
 
     let timeoutId = null;
+    // Focus, visibility, and midnight events can arrive together; this guard
+    // prevents overlapping network runs within the mounted component.
     let isRunning = false;
 
     async function runCheckIfNeeded() {
       if (isRunning) return;
 
       const todayKey = getLocalDateKey();
+      // The browser marker avoids redundant requests, while the server applies a
+      // second per-price daily guard for multiple tabs or devices.
       const lastCheckDate = localStorage.getItem(LAST_AUTO_CHECK_DATE_KEY);
 
       if (lastCheckDate === todayKey) {
@@ -55,6 +59,8 @@ function DailyPriceCheck() {
     }
 
     function scheduleNextMidnightCheck() {
+      // Recompute the delay after each run so DST and clock changes do not turn a
+      // one-day timeout into a permanently drifting interval.
       const delay = getMillisecondsUntilNextMidnight();
 
       timeoutId = window.setTimeout(async () => {
@@ -67,6 +73,7 @@ function DailyPriceCheck() {
     scheduleNextMidnightCheck();
 
     function handleVisibilityChange() {
+      // Timers may be throttled in background tabs; recheck when the user returns.
       if (document.visibilityState === "visible") {
         runCheckIfNeeded();
       }

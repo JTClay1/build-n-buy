@@ -12,6 +12,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 function getPageContext(pathname) {
+  // Route-derived context lets the floating widget submit useful metadata without
+  // coupling individual pages to advisor request construction.
   const goalMatch = pathname.match(/^\/goals\/(\d+)/);
 
   if (goalMatch) {
@@ -60,6 +62,7 @@ function SmartAdvisorWidget() {
   const location = useLocation();
 
   const pageContext = useMemo(
+    // Recompute prompts and identifiers only when navigation changes context.
     () => getPageContext(location.pathname),
     [location.pathname]
   );
@@ -113,6 +116,8 @@ function SmartAdvisorWidget() {
         advisor_mode: advisorMode,
       };
 
+      // Omit goal_id outside goal context so the backend cannot accidentally bind
+      // general/dashboard advice to a stale goal.
       if (requestContext.goal_id) {
         payload.goal_id = requestContext.goal_id;
       }
@@ -132,6 +137,8 @@ function SmartAdvisorWidget() {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    // Never carry a response into a different route where its displayed context
+    // would be misleading.
     setCurrentResponse(null);
     setMessage("");
     setError("");
@@ -147,6 +154,8 @@ function SmartAdvisorWidget() {
 
       if (!requestMessage) return;
 
+      // Goal-page alternative buttons communicate through a DOM event so the
+      // reusable floating widget stays independent of the detail-page component.
       const requestContext = {
         context_type: detail.context_type || pageContext.context_type,
         goal_id: detail.goal_id ?? pageContext.goal_id,
@@ -203,6 +212,8 @@ function SmartAdvisorWidget() {
         response: currentResponse.response,
       });
 
+      // Replace the transient response with the persisted server representation,
+      // including its ID and creation timestamp.
       setCurrentResponse({
         ...data.advisor_response,
         is_saved: true,
@@ -244,6 +255,8 @@ function SmartAdvisorWidget() {
         )
       );
 
+      // Use the server's full-inbox count; the local list may contain only the
+      // newest notification window.
       setUnreadCount(data.unread_count || 0);
     } catch (err) {
       setError(err.message);
@@ -269,6 +282,8 @@ function SmartAdvisorWidget() {
     }
   }
 
+  // The dedicated Advisor page replaces the widget to avoid two competing
+  // advisor interfaces and duplicate state.
   if (authLoading || !isAuthenticated || location.pathname === "/advisor") {
     return null;
   }

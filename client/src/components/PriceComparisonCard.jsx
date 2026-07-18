@@ -19,6 +19,8 @@ function formatDateTime(value) {
 }
 
 function sortPrices(priceList) {
+  // Keep the user's preferred choice visible first, then active comparisons,
+  // while preserving a deterministic alphabetical order within each group.
   return [...priceList].sort((a, b) => {
     if (a.is_preferred && !b.is_preferred) return -1;
     if (!a.is_preferred && b.is_preferred) return 1;
@@ -47,6 +49,8 @@ function PriceComparisonCard({ goalId }) {
   const [summary, setSummary] = useState(null);
   const [formData, setFormData] = useState(getEmptyFormData());
 
+  // Editing state is separate from form values so cancel/delete can reliably
+  // return the shared create/edit form to its create mode.
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [editingRetailerName, setEditingRetailerName] = useState("");
 
@@ -150,6 +154,8 @@ function PriceComparisonCard({ goalId }) {
       if (editingPriceId) {
         const data = await updateGoalPrice(editingPriceId, pricePayload);
 
+        // The server enforces one preferred retailer per goal; mirror that
+        // invariant locally without waiting for another list request.
         setPrices((currentPrices) =>
           sortPrices(
             currentPrices.map((currentPrice) =>
@@ -200,6 +206,8 @@ function PriceComparisonCard({ goalId }) {
         is_preferred: true,
       });
 
+      // Update all rows because selecting one preferred retailer clears every
+      // previous preferred flag in the same server transaction.
       setPrices((currentPrices) =>
         sortPrices(
           currentPrices.map((currentPrice) =>
@@ -247,6 +255,8 @@ function PriceComparisonCard({ goalId }) {
     try {
       const data = await refreshGoalPrices(goalId);
 
+      // Replace the collection from the authoritative bulk response so prices,
+      // timestamps, active flags, and notifications reflect the same refresh.
       setPrices(sortPrices(data.prices || []));
       setSummary(data.summary || null);
 
@@ -255,6 +265,8 @@ function PriceComparisonCard({ goalId }) {
       );
 
       if (data.failed_count > 0) {
+        // The backend refreshes each retailer independently; surface one concrete
+        // failure while preserving the successfully updated rows.
         const failedResult = data.results.find(
           (result) => result.status === "failed"
         );

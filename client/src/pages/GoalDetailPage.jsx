@@ -36,6 +36,8 @@ function clamp(value, min, max) {
 }
 
 function calculateProgress(goal) {
+  // Prefer the API's capped calculation, retaining a raw-amount fallback for
+  // compatibility with lightweight or cached goal objects.
   if (goal.progress_percentage !== undefined) {
     return Number(goal.progress_percentage);
   }
@@ -63,12 +65,16 @@ function calculateTimelineProgress(goal) {
     return 100;
   }
 
+  // Timeline progress is intentionally independent of savings progress; showing
+  // both reveals whether funding is keeping pace with elapsed time.
   const progress = (elapsedTimeline / totalTimeline) * 100;
 
   return Math.min(Math.max(progress, 0), 100);
 }
 
 function buildProgressChartData(goal) {
+  // Reconstruct the savings curve from the contribution ledger rather than
+  // storing presentation-specific chart points in the API.
   const width = 520;
   const height = 260;
 
@@ -86,6 +92,7 @@ function buildProgressChartData(goal) {
   const targetDate = new Date(goal.target_date);
   const today = new Date();
 
+  // Guarantee a positive x-axis duration for legacy or malformed date ranges.
   const safeTargetDate =
     targetDate > createdDate
       ? targetDate
@@ -93,6 +100,7 @@ function buildProgressChartData(goal) {
 
   const totalDuration = safeTargetDate - createdDate || 1;
 
+  // Ledger order is chronological even if API/database ordering changes.
   const sortedContributions = [...(goal.contributions || [])].sort(
     (a, b) =>
       new Date(a.contribution_date).getTime() -
@@ -109,6 +117,7 @@ function buildProgressChartData(goal) {
   ];
 
   sortedContributions.forEach((contribution) => {
+    // Contributions store positive magnitudes; entry_type supplies direction.
     const entryType = contribution.entry_type || "deposit";
     const amount = Number(contribution.amount || 0);
 
@@ -133,12 +142,15 @@ function buildProgressChartData(goal) {
 
   const currentDate = today < safeTargetDate ? today : safeTargetDate;
 
+  // Add the current aggregate as the terminal point so the chart agrees with the
+  // headline value even if historical rows were imported or corrected.
   rawPoints.push({
     date: currentDate,
     percent: calculateProgress(goal),
     isCurrent: true,
   });
 
+  // Convert date and percentage domains into SVG coordinates in one pass.
   const points = rawPoints.map((point) => {
     const dateProgress = clamp(
       (point.date - createdDate) / totalDuration,
@@ -289,6 +301,8 @@ function GoalDetailPage() {
     ? `Find premium alternatives for my goal "${goal.item_name}". Strictly return product alternative ideas only. Focus on upgraded models, premium versions, better long-term value, stronger warranties, better bundles, and higher-quality competing products.`
     : `Find budget alternatives for my goal "${goal.item_name}". Strictly return product alternative ideas only. Focus on cheaper alternatives, previous-generation models, refurbished or open-box options, cheaper bundles, and similar lower-cost products.`;
 
+  // The global widget owns advisor network state; a custom event keeps this page
+  // focused on goal presentation while still supporting one-click prompts.
   window.dispatchEvent(
     new CustomEvent("buildnbuy:advisor-request", {
       detail: {

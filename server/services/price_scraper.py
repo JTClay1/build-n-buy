@@ -11,6 +11,8 @@ try:
     from dotenv import load_dotenv
 
     SERVER_DIR = Path(__file__).resolve().parents[1]
+    # The server-specific file wins locally; hosted environments can omit it and
+    # provide the same settings through process variables.
     load_dotenv(SERVER_DIR / ".env", override=True)
 except ImportError:
     pass
@@ -18,6 +20,7 @@ except ImportError:
 try:
     from openai import OpenAI
 except ImportError:
+    # AI extraction is a final fallback, not a runtime requirement.
     OpenAI = None
 
 
@@ -43,6 +46,8 @@ class PriceScrapeError(Exception):
 
 
 def clean_price_value(value):
+    # Normalize the heterogeneous numeric and localized string values returned by
+    # retailer APIs, metadata, and embedded page state.
     if value in [None, ""]:
         return None
 
@@ -88,6 +93,8 @@ def validate_product_url(product_url):
 
     path = parsed_url.path.strip("/").lower()
 
+    # Reject obvious account/navigation pages early; they frequently contain
+    # unrelated dollar amounts that can be mistaken for product prices.
     blocked_path_fragments = [
         "cart",
         "checkout",
@@ -199,6 +206,8 @@ def get_target_tcin_candidates(product_url):
 
     preselect_values = query_params.get("preselect")
 
+    # Keep every plausible variant ID because Target URLs can carry both a selected
+    # variant and a canonical product ID; response matching decides which exists.
     if preselect_values and preselect_values[0].isdigit():
         candidates.append(preselect_values[0])
 
@@ -222,6 +231,8 @@ def get_target_tcin_candidates(product_url):
 
 
 def find_target_objects_by_tcin(data, tcin):
+    # RedSky response nesting changes across product categories, so locate exact
+    # identifiers recursively instead of depending on one brittle JSON path.
     matches = []
 
     if isinstance(data, list):
@@ -320,6 +331,8 @@ def scrape_target_redsky(product_url, api_key, country_code, previous_price=None
     if not request_tcin or not tcin_candidates:
         return None
 
+    # Route the retailer API through ScraperAPI to apply the same geographic and
+    # anti-bot controls as HTML requests.
     target_api_url = build_target_redsky_url(product_url, request_tcin)
 
     scraperapi_params = [
@@ -395,6 +408,8 @@ def build_scraperapi_params(api_key, product_url, profile, country_code):
 
 
 def get_scraper_profiles(retailer, render_override=None):
+    # Profiles progress from inexpensive static requests to rendered/premium
+    # requests; the first successful response controls both cost and latency.
     if render_override is not None:
         return [
             {
@@ -499,6 +514,8 @@ def find_price_deep(data, path=""):
     if not isinstance(data, dict):
         return None
 
+    # Prefer semantic current/offer keys before broad formatted or nested matches
+    # to reduce false positives from list prices and unrelated amounts.
     high_confidence_keys = [
         "current_retail",
         "currentRetail",
@@ -706,6 +723,8 @@ def extract_price_from_json_scripts(soup):
     for selector in script_selectors:
         scripts = soup.select(selector)
 
+        # Bound scanning on script-heavy storefronts and skip payloads that cannot
+        # contain a price before attempting JSON parsing.
         for script in scripts[:80]:
             raw_text = script.string or script.get_text()
 
@@ -820,6 +839,8 @@ def extract_price_from_raw_text(html):
     if not candidates:
         return None
 
+    # When raw text is the only signal, the lowest current-looking candidate is
+    # more likely to be the sale price than the crossed-out list price.
     return min(candidates)
 
 
@@ -864,6 +885,8 @@ def build_ai_price_snippets(html):
         seen.add(normalized)
         unique_snippets.append(snippet)
 
+    # Send small, deduplicated neighborhoods rather than an entire page to reduce
+    # token use and keep the model focused on price-bearing content.
     return "\n\n---SNIPPET---\n\n".join(unique_snippets[:25])
 
 
@@ -887,6 +910,8 @@ def get_openai_text(openai_response):
 
 
 def extract_price_with_ai(html, product_url, retailer):
+    # Deterministic structured/HTML extractors run first; this path is only for
+    # storefronts whose price is buried in unfamiliar page state.
     if OpenAI is None:
         return None
 
@@ -980,6 +1005,7 @@ Rules:
         if not price:
             return None
 
+        # Reject low-confidence values rather than polluting trusted price history.
         if parsed.get("confidence") == "low":
             return None
 
@@ -999,6 +1025,8 @@ def extract_price_from_html(html, retailer="generic", product_url=None):
         if price:
             return price
 
+    # Order extractors from standardized, product-scoped signals to increasingly
+    # permissive DOM and text heuristics.
     extraction_attempts = [
         extract_price_from_json_ld,
         extract_price_from_meta_tags,
@@ -1032,6 +1060,8 @@ def validate_scraped_price(price, previous_price=None):
             f"Scraped price ${price:,.2f} looks suspiciously low."
         )
 
+    # Compare mature prices against generous bounds to catch variant IDs, payment
+    # amounts, and parsing errors without rejecting ordinary promotions.
     if previous_price and previous_price >= 50:
         low_threshold = previous_price * 0.35
         high_threshold = previous_price * 3
@@ -1100,6 +1130,8 @@ def fetch_html_with_scraperapi(product_url, api_key, country_code, retailer, ren
     profiles = get_scraper_profiles(retailer, render_override=render)
     failures = []
 
+    # Retry with progressively stronger profiles and retain compact failure context
+    # for an actionable final error.
     for profile in profiles:
         params = build_scraperapi_params(
             api_key=api_key,
@@ -1160,6 +1192,8 @@ def scrape_price_from_url(product_url, render=None, previous_price=None):
 
     retailer_specific_errors = []
 
+    # Retailer APIs are more precise than page scraping, so use them first and
+    # fall back to the shared HTML pipeline when they are unavailable.
     if retailer == "walmart":
         try:
             structured_result = scrape_walmart_structured(

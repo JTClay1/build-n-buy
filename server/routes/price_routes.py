@@ -15,6 +15,8 @@ def get_user_goal(goal_id, user_id):
 
 
 def parse_money(value, field_name, default=None):
+    # Optional cost fields use their caller-provided default; an omitted base
+    # price intentionally remains invalid when no default is supplied.
     if value in [None, ""]:
         return default
 
@@ -30,6 +32,7 @@ def parse_money(value, field_name, default=None):
 
 
 def build_price_summary(goal):
+    # Archived comparisons remain editable but are excluded from buying guidance.
     active_prices = [
         retailer_price
         for retailer_price in goal.retailer_prices
@@ -75,6 +78,7 @@ def create_price_notification(user_id, goal, retailer_price, old_price, new_pric
     price_difference = round(new_price - old_price, 2)
 
     if price_difference == 0:
+        # Avoid creating notification noise when a refresh confirms the same price.
         return None
 
     if price_difference < 0:
@@ -110,6 +114,8 @@ def refresh_retailer_price(retailer_price, user_id, render=None):
 
     old_price = float(retailer_price.price)
 
+    # Supply the previous value so the scraper can reject implausible jumps before
+    # they overwrite trusted comparison data.
     scrape_result = scrape_price_from_url(
         retailer_price.product_url,
         render=render,
@@ -151,6 +157,8 @@ def daily_price_check():
     force = bool(data.get("force", False))
 
     now = datetime.utcnow()
+    # The server-side date guard makes the operation idempotent even when several
+    # browser tabs or devices request the daily check.
     today_midnight = datetime(
         year=now.year,
         month=now.month,
@@ -192,6 +200,7 @@ def daily_price_check():
 
             continue
 
+        # A failed retailer must not prevent independent prices from refreshing.
         try:
             result = refresh_retailer_price(
                 retailer_price=retailer_price,
@@ -291,6 +300,8 @@ def create_goal_price(goal_id):
         last_checked_at=datetime.utcnow()
     )
 
+    # Preferred is a per-goal singleton. Clear the previous choice in the same
+    # transaction before adding the new one.
     if retailer_price.is_preferred:
         RetailerPrice.query.filter_by(goal_id=goal.id).update({
             "is_preferred": False
@@ -311,6 +322,7 @@ def create_goal_price(goal_id):
 def update_goal_price(price_id):
     user_id = int(get_jwt_identity())
 
+    # Join through Goal so resource lookup and authorization happen in one query.
     retailer_price = (
         RetailerPrice.query
         .join(Goal)
@@ -370,6 +382,8 @@ def update_goal_price(price_id):
         retailer_price.is_preferred = bool(data["is_preferred"])
 
         if retailer_price.is_preferred:
+            # Preserve the one-preferred-retailer invariant on updates as well as
+            # creates.
             RetailerPrice.query.filter_by(
                 goal_id=retailer_price.goal_id
             ).filter(
@@ -457,6 +471,8 @@ def refresh_goal_prices(goal_id):
             "error": "No active retailer prices with product URLs to refresh."
         }), 400
 
+    # Bulk refresh is best-effort: return a status for every tracked retailer so
+    # the UI can present partial success instead of discarding good updates.
     results = []
 
     for retailer_price in prices_to_refresh:
@@ -532,6 +548,7 @@ def delete_goal_price(price_id):
     if not retailer_price:
         return jsonify({"error": "Retailer price not found"}), 404
 
+    # Retain the loaded parent for the post-delete summary calculation.
     goal = retailer_price.goal
 
     db.session.delete(retailer_price)

@@ -21,6 +21,9 @@ function App() {
   return (
     <>
       <NavBar />
+
+      {/* These authenticated background services span routes, so navigation does
+          not reset inactivity tracking, price scheduling, or advisor state. */}
       <SessionTimeout />
       <DailyPriceCheck />
 
@@ -102,6 +105,7 @@ function App() {
         />
       </Routes>
 
+      {/* The advisor is global but self-hides on public routes and its full page. */}
       <SmartAdvisorWidget />
     </>
   );

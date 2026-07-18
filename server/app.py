@@ -6,23 +6,24 @@ from sqlalchemy import create_engine
 from config import Config
 from extensions import db, migrate, bcrypt, jwt, cors
 
-# Import models so Flask-Migrate / SQLAlchemy metadata knows about them.
+# Import models for their metadata side effects before migrations or create_all run.
 import models
 
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Use Render/Postgres DATABASE_URL in production, keep local config as fallback.
+# Render supplies DATABASE_URL at runtime; Config retains SQLite as the local fallback.
 database_url = os.getenv("DATABASE_URL")
 
 if database_url:
-    # Render/Postgres URLs can use postgres://, but SQLAlchemy expects postgresql://
+    # Normalize Render's legacy scheme before SQLAlchemy resolves the driver.
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
-# Frontend URL for production CORS.
+# Keep the known development and production clients explicit, while allowing a
+# deployment-specific frontend without changing source code.
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 allowed_origins = [
@@ -34,7 +35,8 @@ allowed_origins = [
 if frontend_url and frontend_url not in allowed_origins:
     allowed_origins.append(frontend_url)
 
-# Initialize extensions.
+# Extensions stay unbound in extensions.py to avoid circular imports and make
+# their lifecycle follow this application instance.
 db.init_app(app)
 migrate.init_app(app, db)
 bcrypt.init_app(app)
@@ -55,6 +57,8 @@ cors.init_app(
 
 @app.before_request
 def handle_cors_preflight():
+    # Short-circuit browser preflight requests before authentication decorators
+    # or route handlers can reject them.
     if request.method == "OPTIONS":
         response = make_response("", 204)
         return response
@@ -64,6 +68,7 @@ def handle_cors_preflight():
 def add_cors_headers(response):
     origin = request.headers.get("Origin")
 
+    # Echo only allow-listed origins; a wildcard is unsafe with credentials.
     if origin in allowed_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
@@ -73,7 +78,7 @@ def add_cors_headers(response):
 
     return response
 
-# Import Blueprints.
+# Import routes after extension initialization because route modules import db.
 from routes.auth_routes import auth_bp
 from routes.goal_routes import goal_bp
 from routes.contribution_routes import contribution_bp
@@ -83,7 +88,8 @@ from routes.notification_routes import notification_bp
 from routes.budget_routes import budget_bp
 from routes.price_routes import price_bp
 
-# Register Blueprints.
+# Auth and goals own dedicated prefixes; the remaining blueprints expose their
+# complete /api paths so related resources can share goal-based URLs.
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(goal_bp, url_prefix="/api/goals")
 app.register_blueprint(contribution_bp, url_prefix="/api")
@@ -93,8 +99,9 @@ app.register_blueprint(notification_bp, url_prefix="/api")
 app.register_blueprint(budget_bp, url_prefix="/api")
 app.register_blueprint(price_bp, url_prefix="/api")
 
-# Production table creation for Render Postgres.
-# This bypasses Flask-Migrate/Flask app-context issues and uses SQLAlchemy metadata directly.
+# Render deployments may start before a migration command is available. Creating
+# missing tables from metadata keeps first boot resilient without altering
+# existing tables; schema evolution still belongs in migrations.
 if database_url:
     print("Ensuring production database tables exist...")
 

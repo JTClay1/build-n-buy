@@ -8,6 +8,8 @@ budget_bp = Blueprint("budget", __name__)
 
 
 def build_budget_summary(user_id):
+    # Inactive items stay available for history/editing but must not affect the
+    # affordability snapshot used by the dashboard and advisor.
     budget_items = BudgetItem.query.filter_by(
         user_id=user_id,
         is_active=True
@@ -26,6 +28,8 @@ def build_budget_summary(user_id):
         item.amount for item in budget_items if item.item_type == "expense"
     )
 
+    # Goal commitments are treated like planned monthly outflow after recurring
+    # expenses, producing the user's remaining discretionary cushion.
     total_goal_monthly_targets = sum(
         goal.calculated_monthly_target() for goal in active_goals
     )

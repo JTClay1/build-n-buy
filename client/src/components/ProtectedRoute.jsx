@@ -5,6 +5,8 @@ function ProtectedRoute({ children }) {
   const { isAuthenticated, authLoading } = useAuth();
 
   if (authLoading) {
+    // Wait for token validation to avoid redirecting a valid returning user during
+    // the provider's initial /me request.
     return <p>Loading...</p>;
   }
 

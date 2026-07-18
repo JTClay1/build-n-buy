@@ -13,6 +13,8 @@ function getInitialTheme() {
 }
 
 function applyTheme(theme) {
+  // Set both roots because the stylesheet contains selectors for each convention;
+  // removing the legacy class prevents stale styles from overriding data-theme.
   document.documentElement.setAttribute("data-theme", theme);
   document.body.setAttribute("data-theme", theme);
 

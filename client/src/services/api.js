@@ -10,6 +10,7 @@ export async function apiRequest(endpoint, options = {}) {
   };
 
   if (token) {
+    // Central injection keeps feature modules from handling or duplicating JWTs.
     headers.Authorization = `Bearer ${token}`;
   }
 
@@ -21,6 +22,8 @@ export async function apiRequest(endpoint, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
+    // Flask-JWT-Extended uses msg while application routes use error; normalize
+    // both into the Error contract consumed by page-level handlers.
     throw new Error(data.error || data.msg || "Something went wrong");
   }
 
@@ -123,6 +126,8 @@ export async function getAdvisorSnapshot() {
 }
 
 export async function getAdvisorHistory(goalId = null) {
+  // Omit the query parameter for cross-goal history rather than sending a
+  // misleading empty identifier.
   const queryString = goalId ? `?goal_id=${goalId}` : "";
 
   return apiRequest(`/advisor/history${queryString}`);

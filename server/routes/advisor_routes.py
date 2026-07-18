@@ -5,6 +5,7 @@ import os
 
 try:
     from dotenv import load_dotenv
+    # Local development can use .env; hosted environments inject variables.
     load_dotenv()
 except ImportError:
     pass
@@ -12,6 +13,7 @@ except ImportError:
 try:
     from openai import OpenAI
 except ImportError:
+    # The deterministic advisor remains fully functional without the optional SDK.
     OpenAI = None
 
 from extensions import db
@@ -25,6 +27,8 @@ def format_currency(amount):
 
 
 def build_budget_context(user_id):
+    # Advisor calculations intentionally mirror the budget endpoint so guidance
+    # and the profile summary cannot disagree about available cash flow.
     budget_items = BudgetItem.query.filter_by(
         user_id=user_id,
         is_active=True
@@ -91,6 +95,8 @@ def build_budget_recommendations(budget_context):
     available_before_goals = budget_summary["available_before_goals"]
     total_goal_monthly_targets = budget_summary["total_goal_monthly_targets"]
 
+    # These thresholds are product guardrails: negative means overcommitted, while
+    # less than $100 signals that the plan has little room for normal variance.
     if available_after_goals < 0:
         recommendations.append(
             f"Your active goals currently exceed your budget context by about {format_currency(abs(available_after_goals))} per month."
@@ -132,6 +138,8 @@ def build_budget_recommendations(budget_context):
 
 
 def build_price_context_for_goal(goal):
+    # Compare all-in totals and ignore disabled rows; shelf price alone can make a
+    # retailer with high shipping or tax estimates look artificially cheaper.
     active_prices = [
         retailer_price
         for retailer_price in goal.retailer_prices
@@ -298,6 +306,7 @@ def build_dashboard_price_context(goals):
         and goal_context["price_context"]["target_vs_lowest_difference"] > 0
     ]
 
+    # Only the three largest opportunities are needed for concise dashboard advice.
     goals_with_target_cushion.sort(
         key=lambda goal_context: goal_context["price_context"]["target_vs_lowest_difference"],
         reverse=True
@@ -643,6 +652,8 @@ def build_general_advice(message, budget_context, price_context):
 
 
 def build_rule_based_advisor_response(user_id, message, context_type, goal_id):
+    # Always construct a complete deterministic response first. AI may refine the
+    # wording later, but it is never required for correctness or availability.
     budget_context = build_budget_context(user_id)
 
     all_user_goals = Goal.query.filter_by(user_id=user_id).all()
@@ -689,6 +700,8 @@ def build_rule_based_advisor_response(user_id, message, context_type, goal_id):
 
 
 def get_response_text(openai_response):
+    # Support both the SDK convenience property and serialized response shape so
+    # minor SDK response-format changes do not disable the fallback path.
     if hasattr(openai_response, "output_text") and openai_response.output_text:
         return openai_response.output_text
 
@@ -710,6 +723,8 @@ def get_response_text(openai_response):
 
 
 def normalize_string_list(value, fallback_items, max_items=6):
+    # Treat model output as untrusted even under a JSON schema and fall back to the
+    # deterministic recommendations when content is empty or malformed.
     if not isinstance(value, list):
         return fallback_items[:max_items]
 
@@ -783,6 +798,8 @@ Do not give generic budget advice unless it directly explains how a premium alte
     user_prompt = json.dumps(payload, default=str)
 
     try:
+        # Structured output constrains presentation fields while the supplied
+        # rule-based payload remains the factual source of truth.
         openai_response = client.responses.create(
             model=model,
             input=[
@@ -874,6 +891,8 @@ Do not give generic budget advice unless it directly explains how a premium alte
         }
 
     except Exception as error:
+        # Network, parsing, and model failures degrade to deterministic guidance
+        # instead of turning the advisor endpoint into an application failure.
         print(f"OpenAI advisor fallback used: {error}")
         return None
 
@@ -882,6 +901,7 @@ def merge_ai_response(rule_based_response, ai_response):
     if not ai_response:
         return rule_based_response
 
+    # Preserve audited application context even when AI supplies friendlier prose.
     return {
         "summary": ai_response["summary"],
         "context_used": rule_based_response["context_used"],
@@ -898,6 +918,8 @@ def apply_alternative_mode(rule_based_response, advisor_mode, goal):
     if not goal:
         return rule_based_response
 
+    # Deterministic mode copy ensures the alternative buttons remain useful when
+    # the OpenAI integration is unavailable.
     updated_response = dict(rule_based_response)
 
     item_name = goal.item_name
@@ -977,6 +999,7 @@ def create_advisor_response():
     if not message:
         return jsonify({"error": "Message is required"}), 400
 
+    # Validate ownership and build trusted context before attempting any model call.
     rule_based_response, goal, error_result = build_rule_based_advisor_response(
         user_id,
         message,
@@ -994,6 +1017,7 @@ def create_advisor_response():
         goal
     )
 
+    # AI is an optional presentation layer over the complete rule-based result.
     ai_response = build_ai_advisor_response(
         message,
         context_type,
@@ -1046,6 +1070,7 @@ def save_advisor_response():
     goal = None
 
     if goal_id:
+        # Saved responses may reference only goals owned by the authenticated user.
         goal = Goal.query.filter_by(id=goal_id, user_id=user_id).first()
 
         if not goal:
@@ -1118,6 +1143,7 @@ def get_advisor_history():
     if goal_id:
         query = query.filter_by(goal_id=goal_id)
 
+    # Bound history payloads because responses include substantial context data.
     advisor_responses = (
         query
         .order_by(SmartAdvisorResponse.created_at.desc())

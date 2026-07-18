@@ -14,11 +14,11 @@ def parse_target_date(target_date_value):
         return None
 
     try:
-        # Handles frontend date input format: "YYYY-MM-DD"
+        # HTML date inputs send a date only; ISO datetime support keeps API clients
+        # and previously persisted request formats compatible.
         return datetime.strptime(target_date_value, "%Y-%m-%d")
     except ValueError:
         try:
-            # Fallback for ISO datetime strings
             return datetime.fromisoformat(target_date_value)
         except ValueError:
             return None
@@ -39,6 +39,8 @@ def sync_goal_timeline(goal):
     """
     Keeps legacy database fields updated while target_date stays the source of truth.
     """
+    # Keep legacy columns synchronized even though target_date now drives all
+    # calculations. This prevents older clients from observing stale values.
     months_remaining = goal.months_remaining()
 
     goal.months_to_goal = max(months_remaining, 1)
@@ -95,7 +97,8 @@ def create_goal():
 
     target_date = parse_target_date(target_date_value)
 
-    # Backward-compatible fallback while frontend is being converted
+    # Accept month-based requests from older clients by translating them into the
+    # canonical date-based plan once at the API boundary.
     if not target_date and months_to_goal:
         try:
             months_to_goal = int(months_to_goal)
@@ -205,7 +208,8 @@ def update_goal(goal_id):
 
         goal.target_date = target_date
 
-    # Backward-compatible support for old frontend/month-based requests
+    # target_date wins when both formats are supplied; months_to_goal is only a
+    # compatibility input for clients that have not moved to dates.
     if "months_to_goal" in data and "target_date" not in data:
         try:
             months_to_goal = int(data["months_to_goal"])
